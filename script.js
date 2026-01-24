@@ -258,6 +258,23 @@ document.addEventListener('mouseup', () => {
     }
 });
 
+// --- Open file from URL parameter ---
+(async function loadFromUrl() {
+    const params = new URLSearchParams(window.location.search);
+    const filePath = params.get('file');
+    if (!filePath) return;
+    try {
+        const response = await fetch('/open-file?path=' + encodeURIComponent(filePath));
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error);
+        markdownInput.value = result.content;
+        renderMarkdown();
+        updateTitle(result.filePath);
+    } catch (error) {
+        alert('Failed to open file: ' + error.message);
+    }
+})();
+
 // --- Keyboard shortcuts ---
 markdownInput.addEventListener('keydown', (e) => {
     if (e.ctrlKey && e.key === 'b') {

@@ -1,0 +1,7 @@
+Windows Registry Editor Version 5.00
+
+[HKEY_CURRENT_USER\Software\Classes\SystemFileAssociations\.md\shell\OpenWithMarkdownRenderer]
+@="Open with Markdown Renderer"
+
+[HKEY_CURRENT_USER\Software\Classes\SystemFileAssociations\.md\shell\OpenWithMarkdownRenderer\command]
+@="powershell -ExecutionPolicy Bypass -WindowStyle Hidden -File \"C:\\Users\\wshi\\markdown-renderer\\open-md.ps1\" \"%1\""
