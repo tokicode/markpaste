@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Markdown Renderer</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1 id="app-title">Markdown Previewer</h1>
+    <div class="file-controls">
+        <input type="file" id="file-input" accept=".md" />
+        <button id="save-md">Save</button>
+        <button id="save-as-md">Save As</button>
+        <button id="save-html">Save as HTML</button>
+        <button id="save-word">Save as Word</button>
+        <button id="save-pdf">Save as PDF</button>
+        <button id="copy-clipboard">Copy to Clipboard</button>
+    </div>
+    <div class="toolbar">
+        <button data-action="bold" title="Bold (Ctrl+B)"><b>B</b></button>
+        <button data-action="italic" title="Italic (Ctrl+I)"><i>I</i></button>
+        <button data-action="strikethrough" title="Strikethrough"><s>S</s></button>
+        <span class="toolbar-separator"></span>
+        <button data-action="h1" title="Heading 1">H1</button>
+        <button data-action="h2" title="Heading 2">H2</button>
+        <button data-action="h3" title="Heading 3">H3</button>
+        <span class="toolbar-separator"></span>
+        <button data-action="ul" title="Unordered List">&#8226; List</button>
+        <button data-action="ol" title="Ordered List">1. List</button>
+        <button data-action="checklist" title="Checklist">&#9744; Check</button>
+        <span class="toolbar-separator"></span>
+        <button data-action="link" title="Link">&#128279; Link</button>
+        <button data-action="image" title="Image">&#128247; Image</button>
+        <button data-action="code" title="Inline Code">&lt;/&gt;</button>
+        <button data-action="codeblock" title="Code Block">```</button>
+        <span class="toolbar-separator"></span>
+        <button data-action="blockquote" title="Blockquote">&#10077; Quote</button>
+        <button data-action="hr" title="Horizontal Rule">&#8213; HR</button>
+        <button data-action="table" title="Table">&#9638; Table</button>
+    </div>
+    <div class="editor-container">
+        <textarea id="markdown-input" placeholder="Paste your Markdown here, or drag & drop a .md file..."></textarea>
+        <div class="resizer" id="resizer"></div>
+        <div id="rendered-output"></div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/markdown-it@12.3.2/dist/markdown-it.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
