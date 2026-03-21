@@ -9,6 +9,7 @@ const savePdfButton = document.getElementById('save-pdf');
 const saveWordButton = document.getElementById('save-word');
 const copyClipboardButton = document.getElementById('copy-clipboard');
 const themeToggle = document.getElementById('theme-toggle');
+const refreshButton = document.getElementById('refresh-file');
 const saveStatus = document.getElementById('save-status');
 const md = window.markdownit();
 
@@ -326,6 +327,26 @@ document.addEventListener('mouseup', () => {
         alert('Failed to open file: ' + error.message);
     }
 })();
+
+// --- Refresh (reload current file from disk) ---
+refreshButton.addEventListener('click', async () => {
+    if (!currentFile) {
+        alert('No file opened yet.');
+        return;
+    }
+    try {
+        const response = await fetch('/open-file?path=' + encodeURIComponent(currentFile));
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error);
+        markdownInput.value = result.content;
+        renderMarkdown();
+        isDirty = false;
+        saveStatus.textContent = '';
+        saveStatus.className = 'status-indicator';
+    } catch (error) {
+        alert('Failed to refresh file: ' + error.message);
+    }
+});
 
 // --- Keyboard shortcuts ---
 markdownInput.addEventListener('keydown', (e) => {
