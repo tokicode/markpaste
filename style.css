@@ -1,3 +1,33 @@
+:root {
+    --bg-color: #ffffff;
+    --text-color: #333333;
+    --border-color: #cccccc;
+    --toolbar-bg: #f5f5f5;
+    --toolbar-border: #dddddd;
+    --button-bg: #ffffff;
+    --button-hover: #e0e0e0;
+    --input-bg: #ffffff;
+    --output-bg: #fafafa;
+    --resizer-bg: #dddddd;
+    --resizer-active: #4a90d9;
+    --drag-over-bg: #f0f7ff;
+}
+
+body.dark-mode {
+    --bg-color: #1e1e1e;
+    --text-color: #e0e0e0;
+    --border-color: #444444;
+    --toolbar-bg: #2d2d2d;
+    --toolbar-border: #3d3d3d;
+    --button-bg: #3d3d3d;
+    --button-hover: #4d4d4d;
+    --input-bg: #2d2d2d;
+    --output-bg: #252525;
+    --resizer-bg: #444444;
+    --resizer-active: #4a90d9;
+    --drag-over-bg: #2a3a4a;
+}
+
 body {
     font-family: sans-serif;
     display: flex;
@@ -7,12 +37,15 @@ body {
     margin: 0;
     padding: 0.5rem;
     box-sizing: border-box;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    transition: background-color 0.3s, color 0.3s;
 }
 
 h1#app-title {
     margin: 0.3rem 0;
     font-size: 1.2rem;
-    color: #333;
+    color: var(--text-color);
     max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -34,8 +67,8 @@ h1#app-title {
     align-items: center;
     gap: 2px;
     padding: 0.3rem 0.5rem;
-    background: #f5f5f5;
-    border: 1px solid #ddd;
+    background: var(--toolbar-bg);
+    border: 1px solid var(--toolbar-border);
     border-radius: 5px;
     margin-bottom: 0.4rem;
     flex-wrap: wrap;
@@ -44,23 +77,24 @@ h1#app-title {
 .toolbar button {
     padding: 0.25rem 0.5rem;
     font-size: 0.8rem;
-    border: 1px solid #ccc;
+    border: 1px solid var(--border-color);
     border-radius: 3px;
-    background: #fff;
+    background: var(--button-bg);
+    color: var(--text-color);
     cursor: pointer;
     min-width: 28px;
     text-align: center;
 }
 
 .toolbar button:hover {
-    background: #e0e0e0;
+    background: var(--button-hover);
 }
 
 .toolbar-separator {
     display: inline-block;
     width: 1px;
     height: 1.2rem;
-    background: #ccc;
+    background: var(--border-color);
     margin: 0 4px;
 }
 
@@ -77,7 +111,7 @@ h1#app-title {
 #markdown-input, #rendered-output {
     flex: 1;
     padding: 1rem;
-    border: 1px solid #ccc;
+    border: 1px solid var(--border-color);
     overflow-y: auto;
     box-sizing: border-box;
     border-radius: 5px;
@@ -87,39 +121,47 @@ h1#app-title {
 .resizer {
     width: 6px;
     cursor: col-resize;
-    background: #ddd;
+    background: var(--resizer-bg);
     border-radius: 3px;
     flex-shrink: 0;
     transition: background 0.2s;
 }
 
 .resizer:hover, .resizer.active {
-    background: #4a90d9;
+    background: var(--resizer-active);
 }
 
 #markdown-input {
     resize: none;
     font-family: monospace;
     font-size: 0.9rem;
+    background: var(--input-bg);
+    color: var(--text-color);
 }
 
 #markdown-input.drag-over {
-    border: 2px dashed #4a90d9;
-    background: #f0f7ff;
+    border: 2px dashed var(--resizer-active);
+    background: var(--drag-over-bg);
 }
 
 #rendered-output {
-    background: #fafafa;
+    background: var(--output-bg);
 }
 
 .file-controls button, .buttons button {
     padding: 0.4rem 0.8rem;
-    border: 1px solid #ccc;
+    border: 1px solid var(--border-color);
     border-radius: 5px;
     cursor: pointer;
     font-size: 0.85rem;
+    background: var(--button-bg);
+    color: var(--text-color);
 }
 
 .file-controls button:hover {
-    background: #e0e0e0;
+    background: var(--button-hover);
+}
+
+#theme-toggle {
+    min-width: 70px;
 }

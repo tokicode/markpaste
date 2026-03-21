@@ -8,9 +8,28 @@ const saveHtmlButton = document.getElementById('save-html');
 const savePdfButton = document.getElementById('save-pdf');
 const saveWordButton = document.getElementById('save-word');
 const copyClipboardButton = document.getElementById('copy-clipboard');
+const themeToggle = document.getElementById('theme-toggle');
 const md = window.markdownit();
 
 let currentFile = null;
+
+// --- Theme toggle ---
+function initTheme() {
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark') {
+        document.body.classList.add('dark-mode');
+        themeToggle.textContent = '☀️ Light';
+    }
+}
+
+function toggleTheme() {
+    const isDark = document.body.classList.toggle('dark-mode');
+    localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    themeToggle.textContent = isDark ? '☀️ Light' : '🌙 Dark';
+}
+
+themeToggle.addEventListener('click', toggleTheme);
+initTheme();
 
 // --- Title update ---
 function updateTitle(filePath) {
