@@ -9,33 +9,55 @@ const savePdfButton = document.getElementById('save-pdf');
 const saveWordButton = document.getElementById('save-word');
 const copyClipboardButton = document.getElementById('copy-clipboard');
 const themeToggle = document.getElementById('theme-toggle');
+const saveStatus = document.getElementById('save-status');
 const md = window.markdownit();
 
 let currentFile = null;
+let isDirty = false;
 
 // --- Theme toggle ---
+// Default is dark; light-mode class switches to light theme
 function initTheme() {
     const savedTheme = localStorage.getItem('theme');
-    if (savedTheme === 'dark') {
-        document.body.classList.add('dark-mode');
-        themeToggle.textContent = '☀️ Light';
+    if (savedTheme === 'light') {
+        document.body.classList.add('light-mode');
     }
 }
 
 function toggleTheme() {
-    const isDark = document.body.classList.toggle('dark-mode');
-    localStorage.setItem('theme', isDark ? 'dark' : 'light');
-    themeToggle.textContent = isDark ? '☀️ Light' : '🌙 Dark';
+    const isLight = document.body.classList.toggle('light-mode');
+    localStorage.setItem('theme', isLight ? 'light' : 'dark');
 }
 
 themeToggle.addEventListener('click', toggleTheme);
 initTheme();
 
+// --- Unsaved changes tracking ---
+function markDirty() {
+    if (!isDirty) {
+        isDirty = true;
+        saveStatus.textContent = '● unsaved';
+        saveStatus.className = 'status-indicator unsaved';
+    }
+}
+
+function markSaved() {
+    isDirty = false;
+    saveStatus.textContent = '✓ saved';
+    saveStatus.className = 'status-indicator saved';
+    setTimeout(() => {
+        if (!isDirty) {
+            saveStatus.textContent = '';
+            saveStatus.className = 'status-indicator';
+        }
+    }, 2200);
+}
+
 // --- Title update ---
 function updateTitle(filePath) {
     currentFile = filePath;
-    appTitle.textContent = filePath || 'Markdown Previewer';
-    document.title = filePath ? `${filePath} - Markdown Renderer` : 'Markdown Renderer';
+    appTitle.textContent = filePath ? filePath.split(/[\\/]/).pop() : 'Markdown Studio';
+    document.title = filePath ? `${filePath.split(/[\\/]/).pop()} — Markdown Studio` : 'Markdown Studio';
 }
 
 // --- File loading ---
@@ -45,6 +67,9 @@ function loadFileContent(file) {
         markdownInput.value = e.target.result;
         renderMarkdown();
         updateTitle(file.path || file.name);
+        isDirty = false;
+        saveStatus.textContent = '';
+        saveStatus.className = 'status-indicator';
     };
     reader.readAsText(file);
 }
@@ -80,7 +105,10 @@ function renderMarkdown() {
     renderedOutput.innerHTML = md.render(markdownInput.value);
 }
 
-markdownInput.addEventListener('input', renderMarkdown);
+markdownInput.addEventListener('input', () => {
+    renderMarkdown();
+    markDirty();
+});
 
 // --- Save functions ---
 async function saveToServer(filePath, content) {
@@ -101,7 +129,7 @@ saveMdButton.addEventListener('click', async () => {
     }
     try {
         await saveToServer(currentFile, markdownInput.value);
-        alert('File saved: ' + currentFile);
+        markSaved();
     } catch (error) {
         alert('Error saving file: ' + error.message);
     }
@@ -113,7 +141,7 @@ saveAsMdButton.addEventListener('click', async () => {
     try {
         await saveToServer(filePath, markdownInput.value);
         updateTitle(filePath);
-        alert('File saved: ' + filePath);
+        markSaved();
     } catch (error) {
         alert('Error saving file: ' + error.message);
     }
@@ -163,9 +191,9 @@ copyClipboardButton.addEventListener('click', async () => {
                 'text/plain': textBlob
             })
         ]);
-        const originalText = copyClipboardButton.textContent;
+        const orig = copyClipboardButton.textContent;
         copyClipboardButton.textContent = 'Copied!';
-        setTimeout(() => { copyClipboardButton.textContent = originalText; }, 1500);
+        setTimeout(() => { copyClipboardButton.textContent = orig; }, 1500);
     } catch (error) {
         alert('Failed to copy: ' + error.message);
     }
@@ -173,21 +201,21 @@ copyClipboardButton.addEventListener('click', async () => {
 
 // --- Toolbar actions ---
 const toolbarActions = {
-    bold: { prefix: '**', suffix: '**', placeholder: 'bold text' },
-    italic: { prefix: '*', suffix: '*', placeholder: 'italic text' },
+    bold:        { prefix: '**', suffix: '**', placeholder: 'bold text' },
+    italic:      { prefix: '*',  suffix: '*',  placeholder: 'italic text' },
     strikethrough: { prefix: '~~', suffix: '~~', placeholder: 'strikethrough text' },
-    h1: { prefix: '# ', suffix: '', placeholder: 'Heading 1', lineStart: true },
-    h2: { prefix: '## ', suffix: '', placeholder: 'Heading 2', lineStart: true },
-    h3: { prefix: '### ', suffix: '', placeholder: 'Heading 3', lineStart: true },
-    ul: { prefix: '- ', suffix: '', placeholder: 'List item', lineStart: true },
-    ol: { prefix: '1. ', suffix: '', placeholder: 'List item', lineStart: true },
-    checklist: { prefix: '- [ ] ', suffix: '', placeholder: 'Task', lineStart: true },
-    link: { prefix: '[', suffix: '](url)', placeholder: 'link text' },
-    image: { prefix: '![', suffix: '](url)', placeholder: 'alt text' },
-    code: { prefix: '`', suffix: '`', placeholder: 'code' },
-    codeblock: { prefix: '```\n', suffix: '\n```', placeholder: 'code here', block: true },
-    blockquote: { prefix: '> ', suffix: '', placeholder: 'quote', lineStart: true },
-    hr: { prefix: '\n---\n', suffix: '', placeholder: '', insert: true },
+    h1:          { prefix: '# ',   suffix: '', placeholder: 'Heading 1',  lineStart: true },
+    h2:          { prefix: '## ',  suffix: '', placeholder: 'Heading 2',  lineStart: true },
+    h3:          { prefix: '### ', suffix: '', placeholder: 'Heading 3',  lineStart: true },
+    ul:          { prefix: '- ',   suffix: '', placeholder: 'List item',  lineStart: true },
+    ol:          { prefix: '1. ',  suffix: '', placeholder: 'List item',  lineStart: true },
+    checklist:   { prefix: '- [ ] ', suffix: '', placeholder: 'Task',     lineStart: true },
+    link:        { prefix: '[', suffix: '](url)', placeholder: 'link text' },
+    image:       { prefix: '![', suffix: '](url)', placeholder: 'alt text' },
+    code:        { prefix: '`', suffix: '`', placeholder: 'code' },
+    codeblock:   { prefix: '```\n', suffix: '\n```', placeholder: 'code here', block: true },
+    blockquote:  { prefix: '> ', suffix: '', placeholder: 'quote', lineStart: true },
+    hr:          { prefix: '\n---\n', suffix: '', placeholder: '', insert: true },
     table: {
         prefix: '| Column 1 | Column 2 | Column 3 |\n| -------- | -------- | -------- |\n| ',
         suffix: ' |  |  |',
@@ -223,6 +251,7 @@ function applyToolbarAction(action) {
         markdownInput.selectionStart = lineStart + action.prefix.length;
         markdownInput.selectionEnd = lineStart + action.prefix.length + lineContent.length;
         renderMarkdown();
+        markDirty();
         markdownInput.focus();
         return;
     } else {
@@ -239,12 +268,16 @@ function applyToolbarAction(action) {
     markdownInput.selectionStart = cursorPos;
     markdownInput.selectionEnd = cursorPos + selLength;
     renderMarkdown();
+    markDirty();
     markdownInput.focus();
 }
 
 // --- Resizable panels ---
+// Panels are .panel-wrapper elements; resize those directly
 const resizer = document.getElementById('resizer');
 const editorContainer = document.querySelector('.editor-container');
+const editorPanel = document.getElementById('editor-panel');
+const previewPanel = document.getElementById('preview-panel');
 
 let isResizing = false;
 
@@ -262,10 +295,10 @@ document.addEventListener('mousemove', (e) => {
     const offset = e.clientX - containerRect.left;
     const totalWidth = containerRect.width;
     const ratio = Math.max(0.15, Math.min(0.85, offset / totalWidth));
-    markdownInput.style.flex = 'none';
-    renderedOutput.style.flex = 'none';
-    markdownInput.style.width = `calc(${ratio * 100}% - 3px)`;
-    renderedOutput.style.width = `calc(${(1 - ratio) * 100}% - 3px)`;
+    editorPanel.style.flex = 'none';
+    previewPanel.style.flex = 'none';
+    editorPanel.style.width = `calc(${ratio * 100}% - 11px)`;
+    previewPanel.style.width = `calc(${(1 - ratio) * 100}% - 11px)`;
 });
 
 document.addEventListener('mouseup', () => {

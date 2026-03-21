@@ -3,48 +3,84 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Markdown Renderer</title>
+    <title>Markdown Studio</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant:ital,wght@0,400;0,600;0,700;1,400;1,700&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500&family=Lora:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <h1 id="app-title">Markdown Previewer</h1>
-    <div class="file-controls">
-        <input type="file" id="file-input" accept=".md" />
-        <button id="theme-toggle" title="Toggle Light/Dark Mode">🌙 Dark</button>
-        <button id="save-md">Save</button>
-        <button id="save-as-md">Save As</button>
-        <button id="save-html">Save as HTML</button>
-        <button id="save-word">Save as Word</button>
-        <button id="save-pdf">Save as PDF</button>
-        <button id="copy-clipboard">Copy to Clipboard</button>
-    </div>
+
+    <header class="app-header">
+        <div class="header-brand">
+            <span class="brand-glyph">◈</span>
+            <h1 id="app-title">Markdown Studio</h1>
+        </div>
+        <div class="file-controls">
+            <input type="file" id="file-input" accept=".md" />
+            <label for="file-input" class="btn btn-ghost">
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style="margin-right:4px"><path d="M6 1v7M3 5l3-4 3 4M1 10h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Open
+            </label>
+            <span class="divider-v"></span>
+            <button id="save-md" class="btn btn-ghost">Save</button>
+            <button id="save-as-md" class="btn btn-ghost">Save As</button>
+            <span class="divider-v"></span>
+            <button id="save-html" class="btn btn-outline">HTML</button>
+            <button id="save-word" class="btn btn-outline">Word</button>
+            <button id="save-pdf" class="btn btn-outline">PDF</button>
+            <span class="divider-v"></span>
+            <button id="copy-clipboard" class="btn btn-ghost">Copy</button>
+            <button id="theme-toggle" class="btn btn-icon-only" title="Toggle Light / Dark">◑</button>
+        </div>
+    </header>
+
     <div class="toolbar">
-        <button data-action="bold" title="Bold (Ctrl+B)"><b>B</b></button>
-        <button data-action="italic" title="Italic (Ctrl+I)"><i>I</i></button>
-        <button data-action="strikethrough" title="Strikethrough"><s>S</s></button>
+        <div class="toolbar-group">
+            <button data-action="bold" title="Bold (Ctrl+B)" class="tool-btn"><b>B</b></button>
+            <button data-action="italic" title="Italic (Ctrl+I)" class="tool-btn"><i>I</i></button>
+            <button data-action="strikethrough" title="Strikethrough" class="tool-btn"><s>S</s></button>
+        </div>
         <span class="toolbar-separator"></span>
-        <button data-action="h1" title="Heading 1">H1</button>
-        <button data-action="h2" title="Heading 2">H2</button>
-        <button data-action="h3" title="Heading 3">H3</button>
+        <div class="toolbar-group">
+            <button data-action="h1" title="Heading 1" class="tool-btn">H1</button>
+            <button data-action="h2" title="Heading 2" class="tool-btn">H2</button>
+            <button data-action="h3" title="Heading 3" class="tool-btn">H3</button>
+        </div>
         <span class="toolbar-separator"></span>
-        <button data-action="ul" title="Unordered List">&#8226; List</button>
-        <button data-action="ol" title="Ordered List">1. List</button>
-        <button data-action="checklist" title="Checklist">&#9744; Check</button>
+        <div class="toolbar-group">
+            <button data-action="ul" title="Unordered List" class="tool-btn">• List</button>
+            <button data-action="ol" title="Ordered List" class="tool-btn">1. List</button>
+            <button data-action="checklist" title="Checklist" class="tool-btn">☐ Check</button>
+        </div>
         <span class="toolbar-separator"></span>
-        <button data-action="link" title="Link">&#128279; Link</button>
-        <button data-action="image" title="Image">&#128247; Image</button>
-        <button data-action="code" title="Inline Code">&lt;/&gt;</button>
-        <button data-action="codeblock" title="Code Block">```</button>
+        <div class="toolbar-group">
+            <button data-action="link" title="Link" class="tool-btn">⌘ Link</button>
+            <button data-action="image" title="Image" class="tool-btn">⊞ Img</button>
+            <button data-action="code" title="Inline Code" class="tool-btn">`code`</button>
+            <button data-action="codeblock" title="Code Block" class="tool-btn">```</button>
+        </div>
         <span class="toolbar-separator"></span>
-        <button data-action="blockquote" title="Blockquote">&#10077; Quote</button>
-        <button data-action="hr" title="Horizontal Rule">&#8213; HR</button>
-        <button data-action="table" title="Table">&#9638; Table</button>
+        <div class="toolbar-group">
+            <button data-action="blockquote" title="Blockquote" class="tool-btn">" Quote</button>
+            <button data-action="hr" title="Horizontal Rule" class="tool-btn">— HR</button>
+            <button data-action="table" title="Table" class="tool-btn">⊞ Table</button>
+        </div>
+        <span class="status-indicator" id="save-status"></span>
     </div>
+
     <div class="editor-container">
-        <textarea id="markdown-input" placeholder="Paste your Markdown here, or drag & drop a .md file..."></textarea>
-        <div class="resizer" id="resizer"></div>
-        <div id="rendered-output"></div>
+        <div class="panel-wrapper" id="editor-panel">
+            <div class="panel-label">Editor</div>
+            <textarea id="markdown-input" placeholder="Start writing… or drag & drop a .md file here"></textarea>
+        </div>
+        <div class="resizer" id="resizer"><div class="resizer-handle"></div></div>
+        <div class="panel-wrapper" id="preview-panel">
+            <div class="panel-label">Preview</div>
+            <div id="rendered-output"></div>
+        </div>
     </div>
+
     <script src="https://cdn.jsdelivr.net/npm/markdown-it@12.3.2/dist/markdown-it.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
