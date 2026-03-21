@@ -25,10 +25,15 @@ No test framework or linter is currently configured.
 
 ### Backend (server.js)
 - Express 5 static file server serving the frontend from the project root
-- Single API endpoint: `POST /save-markdown` — accepts `{ filePath, content }` and writes to disk via `fs.writeFileSync`
+- `POST /save-markdown` — accepts `{ filePath, content }`, writes to disk via `fs.writeFileSync`
+- `GET /open-file?path=` — reads a local file and returns `{ filePath, content }`; used by `?file=` URL param
 
 ### Frontend (index.html, script.js, style.css)
-- Two-column layout: left panel for editing, right panel for live preview
+- Two-column layout: `#editor-panel` (left) and `#preview-panel` (right) are `.panel-wrapper` flex children of `.editor-container`
+- `#markdown-input` (textarea) and `#rendered-output` (div) live inside those wrappers — resizer targets the wrappers, not the inner elements
+- `#file-input` is CSS-hidden; triggered by `<label for="file-input">` — the `change` event listener still works normally
+- Theme: dark by default; `body.light-mode` class activates light theme (stored in localStorage as `'light'`/`'dark'`)
+- Google Fonts loaded via `<link>` in `<head>` (not CSS @import) for performance
 - CDN dependencies (no bundler):
   - **markdown-it** (v12.3.2) — Markdown parsing and HTML rendering
   - **html2canvas** (v1.4.1) — HTML-to-canvas conversion for PDF export
