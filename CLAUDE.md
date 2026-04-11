@@ -33,6 +33,7 @@ No test framework or linter is currently configured.
 - `#markdown-input` (textarea) and `#rendered-output` (div) live inside those wrappers — resizer targets the wrappers, not the inner elements
 - `#file-input` is CSS-hidden; triggered by `<label for="file-input">` — the `change` event listener still works normally
 - Theme: dark by default; `body.light-mode` class activates light theme (stored in localStorage as `'light'`/`'dark'`)
+- View mode toggle: three buttons in header switch `.editor-container` between `mode-editor` / default / `mode-preview` classes; CSS hides the inactive panel and resizer
 - Google Fonts loaded via `<link>` in `<head>` (not CSS @import) for performance
 - CDN dependencies (no bundler):
   - **markdown-it** (v12.3.2) — Markdown parsing and HTML rendering
