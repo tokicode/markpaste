@@ -153,6 +153,53 @@ body > * { position: relative; z-index: 1; }
     transition: color var(--transition);
 }
 
+/* --- View toggle --- */
+.view-toggle {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    background: var(--surface-raised);
+    border: 1px solid var(--border-solid);
+    border-radius: var(--radius);
+    padding: 3px;
+}
+
+.view-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 26px;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all var(--transition);
+}
+
+.view-btn:hover {
+    color: var(--text-primary);
+    background: var(--surface-hover);
+}
+
+.view-btn.active {
+    background: var(--accent-dim);
+    color: var(--accent);
+    box-shadow: 0 0 0 1px rgba(212, 168, 67, 0.25);
+}
+
+/* --- View mode classes on editor-container --- */
+.editor-container.mode-editor #preview-panel,
+.editor-container.mode-editor .resizer {
+    display: none;
+}
+
+.editor-container.mode-preview #editor-panel,
+.editor-container.mode-preview .resizer {
+    display: none;
+}
+
 /* --- File controls (in header) --- */
 .file-controls {
     display: flex;

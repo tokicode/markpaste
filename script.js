@@ -328,6 +328,27 @@ document.addEventListener('mouseup', () => {
     }
 })();
 
+// --- View mode toggle (editor / split / preview) ---
+const viewBtns = {
+    editor:  document.getElementById('view-editor'),
+    split:   document.getElementById('view-split'),
+    preview: document.getElementById('view-preview'),
+};
+
+function setViewMode(mode) {
+    editorContainer.classList.remove('mode-editor', 'mode-preview');
+    if (mode === 'editor')  editorContainer.classList.add('mode-editor');
+    if (mode === 'preview') editorContainer.classList.add('mode-preview');
+
+    Object.entries(viewBtns).forEach(([key, btn]) => {
+        btn.classList.toggle('active', key === mode);
+    });
+}
+
+viewBtns.editor.addEventListener('click',  () => setViewMode('editor'));
+viewBtns.split.addEventListener('click',   () => setViewMode('split'));
+viewBtns.preview.addEventListener('click', () => setViewMode('preview'));
+
 // --- Refresh (reload current file from disk) ---
 refreshButton.addEventListener('click', async () => {
     if (!currentFile) {
