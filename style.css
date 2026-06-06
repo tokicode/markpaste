@@ -695,6 +695,71 @@ body > * { position: relative; z-index: 1; }
     margin-top: 0;
 }
 
+/* --- Footer --- */
+.app-footer {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    height: 38px;
+    padding: 0 1.1rem;
+    background: var(--surface);
+    border-top: 1px solid var(--border-solid);
+    font-family: var(--font-ui);
+}
+
+.footer-tagline {
+    font-size: 0.74rem;
+    color: var(--text-muted-s);
+    font-style: italic;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.footer-links {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.footer-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.3rem 0.55rem;
+    border-radius: var(--radius);
+    font-size: 0.74rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    text-decoration: none;
+    transition: color var(--transition), background var(--transition);
+}
+
+.footer-link svg { flex: 0 0 auto; opacity: 0.85; }
+
+.footer-link:hover {
+    color: var(--accent-bright);
+    background: var(--accent-dim);
+}
+
+.footer-bmc {
+    color: var(--accent);
+}
+
+.footer-bmc:hover {
+    color: var(--accent-bright);
+}
+
+/* Hide labels on narrow viewports, keep icons */
+@media (max-width: 640px) {
+    .footer-tagline { display: none; }
+    .footer-link span { display: none; }
+    .footer-link { padding: 0.3rem 0.45rem; }
+}
+
 /* --- Animations --- */
 @keyframes slideDown {
     from {

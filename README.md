@@ -4,6 +4,12 @@ A fast, no-fuss Markdown editor with live preview — and a one-click **Copy to 
 
 Write in Markdown, click **Copy**, paste anywhere as proper formatted content. No conversion, no cleanup.
 
+## Use it online
+
+👉 **[markpaste.com](https://markpaste.com)** — nothing to install. Everything runs in your browser; no files are uploaded anywhere. On the web, **Save** downloads a `.md` file (there's no server touching your disk).
+
+Want to open and save `.md` files directly on disk? Run it locally — see below.
+
 ## Features
 
 - **Live preview** — Markdown rendered as you type (powered by [markdown-it](https://github.com/markdown-it/markdown-it))
@@ -21,12 +27,18 @@ Requires [Node.js](https://nodejs.org/).
 
 ```bash
 npm install
-node server.js
+npm start
 ```
 
 Then open <http://localhost:3000>.
 
-The local server lets you open and save `.md` files directly on disk. **It is intended for local use only** — do not expose it to the public internet, since the file endpoints read and write the local filesystem.
+MarkPaste is **backend-optional**: the frontend probes `/api/health` at startup. With the local server running it enables **Local mode** (open/save/refresh files directly on disk, plus the `?file=` URL parameter). Served as a plain static site (like markpaste.com), the probe fails and it runs in **Web mode** (Save downloads a `.md`, Refresh is hidden, `?file=` is ignored) — the same code, no server required.
+
+The local server lets you read and write `.md` files on disk and **binds to `127.0.0.1`** so it is not reachable from the network. **It is intended for local use only** — do not expose it to the public internet. If you must self-host it on a reachable host, set the `MD_BASE_DIR` environment variable to confine all file access to a single directory:
+
+```bash
+MD_BASE_DIR=/path/to/notes npm start
+```
 
 ## Tech stack
 

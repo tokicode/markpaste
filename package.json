@@ -1,14 +1,25 @@
 {
-  "name": "markdown-renderer",
+  "name": "markpaste",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "A fast Markdown editor with live preview and one-click copy to rich text you can paste straight into Word, Outlook, Gmail, or Slack.",
+  "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node server.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": [
+    "markdown",
+    "editor",
+    "rich-text",
+    "clipboard",
+    "preview"
+  ],
+  "homepage": "https://markpaste.com",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tokicode/markpaste.git"
+  },
+  "author": "tokicode",
+  "license": "MIT",
   "type": "commonjs",
   "dependencies": {
     "express": "^5.1.0"

@@ -16,6 +16,10 @@ const md = window.markdownit();
 let currentFile = null;
 let isDirty = false;
 
+// Backend detection: true when the local server.js is running (Local mode),
+// false on the hosted static site (Web mode). Set by initBackendMode() at startup.
+let HAS_BACKEND = false;
+
 // --- Theme toggle ---
 // Default is dark; light-mode class switches to light theme
 function initTheme() {
@@ -57,8 +61,8 @@ function markSaved() {
 // --- Title update ---
 function updateTitle(filePath) {
     currentFile = filePath;
-    appTitle.textContent = filePath ? filePath.split(/[\\/]/).pop() : 'Markdown Studio';
-    document.title = filePath ? `${filePath.split(/[\\/]/).pop()} — Markdown Studio` : 'Markdown Studio';
+    appTitle.textContent = filePath ? filePath.split(/[\\/]/).pop() : 'MarkPaste';
+    document.title = filePath ? `${filePath.split(/[\\/]/).pop()} — MarkPaste` : 'MarkPaste';
 }
 
 // --- File loading ---
@@ -123,7 +127,24 @@ async function saveToServer(filePath, content) {
     return result;
 }
 
+// Web mode fallback: download the markdown as a .md file via the browser.
+function downloadMarkdown(content) {
+    const name = (currentFile ? currentFile.split(/[\\/]/).pop() : 'output.md')
+        .replace(/\.md$/i, '') + '.md';
+    const blob = new Blob([content], { type: 'text/markdown' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    a.click();
+}
+
 saveMdButton.addEventListener('click', async () => {
+    // Web mode: no disk backend, so Save downloads the file instead.
+    if (!HAS_BACKEND) {
+        downloadMarkdown(markdownInput.value);
+        markSaved();
+        return;
+    }
     if (!currentFile) {
         alert('No file opened yet. Use "Save As" to specify a path.');
         return;
@@ -137,6 +158,12 @@ saveMdButton.addEventListener('click', async () => {
 });
 
 saveAsMdButton.addEventListener('click', async () => {
+    // Web mode: "Save As" is the same browser download as Save.
+    if (!HAS_BACKEND) {
+        downloadMarkdown(markdownInput.value);
+        markSaved();
+        return;
+    }
     const filePath = prompt('Enter file path to save:', currentFile || 'output.md');
     if (!filePath) return;
     try {
@@ -311,8 +338,8 @@ document.addEventListener('mouseup', () => {
     }
 });
 
-// --- Open file from URL parameter ---
-(async function loadFromUrl() {
+// --- Open file from URL parameter (Local mode only) ---
+async function loadFromUrl() {
     const params = new URLSearchParams(window.location.search);
     const filePath = params.get('file');
     if (!filePath) return;
@@ -325,6 +352,26 @@ document.addEventListener('mouseup', () => {
         updateTitle(result.filePath);
     } catch (error) {
         alert('Failed to open file: ' + error.message);
+    }
+}
+
+// --- Backend detection + mode setup ---
+// Probe /api/health: success → Local mode (disk open/save/refresh enabled);
+// failure (e.g. hosted static site) → Web mode (Save downloads, Refresh hidden,
+// ?file= ignored).
+(async function initBackendMode() {
+    try {
+        const response = await fetch('/api/health', { cache: 'no-store' });
+        HAS_BACKEND = response.ok;
+    } catch {
+        HAS_BACKEND = false;
+    }
+
+    if (HAS_BACKEND) {
+        await loadFromUrl();
+    } else {
+        // Disk-only controls have no meaning without a backend.
+        refreshButton.style.display = 'none';
     }
 })();
 
