@@ -495,7 +495,7 @@ const styleTrigger = document.getElementById('style-trigger');
 const styleDropdown = document.getElementById('style-dropdown');
 const styleCurrent = document.getElementById('style-current');
 const styleOptions = [...document.querySelectorAll('.style-option')];
-const STYLE_LABELS = { editorial: 'Editorial', business: 'Business', academic: 'Academic' };
+const STYLE_LABELS = { editorial: 'Aurum', business: 'Metro', academic: 'Folio' };
 
 function applyStyle(style) {
     if (!STYLE_LABELS[style]) style = 'editorial';
