@@ -356,13 +356,20 @@ async function loadFromUrl() {
 }
 
 // --- Backend detection + mode setup ---
-// Probe /api/health: success → Local mode (disk open/save/refresh enabled);
-// failure (e.g. hosted static site) → Web mode (Save downloads, Refresh hidden,
+// Probe /api/health: a real backend (server.js) replies with JSON { ok: true }.
+// A static host (e.g. Cloudflare Pages) has no such route and falls back to
+// serving index.html with a 200 + text/html — so checking response.ok alone is
+// not enough; we must confirm the JSON body. Backend present → Local mode (disk
+// open/save/refresh, ?file=); absent → Web mode (Save downloads, Refresh hidden,
 // ?file= ignored).
 (async function initBackendMode() {
     try {
         const response = await fetch('/api/health', { cache: 'no-store' });
-        HAS_BACKEND = response.ok;
+        const contentType = response.headers.get('content-type') || '';
+        if (response.ok && contentType.includes('application/json')) {
+            const data = await response.json();
+            HAS_BACKEND = data && data.ok === true;
+        }
     } catch {
         HAS_BACKEND = false;
     }
