@@ -153,6 +153,85 @@ body > * { position: relative; z-index: 1; }
     transition: color var(--transition);
 }
 
+/* --- Center controls (style menu + view toggle) --- */
+.center-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+/* --- Output style menu --- */
+.style-menu {
+    position: relative;
+}
+
+.style-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    height: 32px;
+    padding: 0 0.6rem;
+    font-family: var(--font-ui);
+    font-size: 0.775rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    background: var(--surface-raised);
+    border: 1px solid var(--border-solid);
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: all var(--transition);
+    white-space: nowrap;
+}
+
+.style-trigger:hover {
+    color: var(--text-primary);
+    border-color: var(--border-bright);
+}
+
+.style-trigger .chev { opacity: 0.6; transition: transform var(--transition); }
+.style-trigger[aria-expanded="true"] .chev { transform: rotate(180deg); }
+
+.style-dropdown {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    min-width: 150px;
+    background: var(--surface-raised);
+    border: 1px solid var(--border-solid);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-lg);
+    padding: 4px;
+    z-index: 50;
+    animation: slideDown 0.14s ease both;
+}
+
+.style-dropdown[hidden] { display: none; }
+
+.style-option {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 0.45rem 0.6rem;
+    font-family: var(--font-ui);
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all var(--transition);
+}
+
+.style-option:hover {
+    background: var(--surface-hover);
+    color: var(--text-primary);
+}
+
+.style-option.active {
+    color: var(--accent);
+    background: var(--accent-dim);
+}
+
 /* --- View toggle --- */
 .view-toggle {
     display: flex;
@@ -256,6 +335,28 @@ body > * { position: relative; z-index: 1; }
     background: var(--accent-dim);
     border-color: var(--accent);
     box-shadow: 0 0 0 3px var(--accent-dim);
+}
+
+/* Primary action — the "Copy" button, MarkPaste's signature feature */
+.btn-primary {
+    background: var(--accent);
+    color: var(--bg);
+    border-color: var(--accent);
+    font-weight: 600;
+    padding: 0.34rem 0.85rem;
+    box-shadow: 0 0 0 0 var(--accent-glow);
+}
+
+.btn-primary:hover {
+    background: var(--accent-bright);
+    border-color: var(--accent-bright);
+    box-shadow: 0 0 0 4px var(--accent-glow);
+}
+
+.btn-primary.copied {
+    background: var(--success);
+    border-color: var(--success);
+    box-shadow: none;
 }
 
 .btn-icon-only {
@@ -694,6 +795,87 @@ body > * { position: relative; z-index: 1; }
 #rendered-output > h3:first-child {
     margin-top: 0;
 }
+
+/* --- Footnotes (markdown-it-footnote) --- */
+#rendered-output .footnotes-sep {
+    margin: 2.4em 0 1em;
+    border: none;
+    border-top: 1px solid var(--border-solid);
+}
+#rendered-output .footnotes-sep::before { content: none; }
+#rendered-output .footnotes {
+    font-size: 0.82em;
+    color: var(--text-secondary);
+}
+#rendered-output .footnotes-list { padding-left: 1.2em; margin: 0; }
+#rendered-output .footnote-item p { margin: 0.3em 0; }
+#rendered-output .footnote-ref a {
+    color: var(--accent);
+    text-decoration: none;
+    font-weight: 600;
+    padding: 0 0.12em;
+}
+#rendered-output .footnote-backref {
+    color: var(--accent);
+    text-decoration: none;
+    margin-left: 0.35em;
+}
+
+/* =============================================================
+   OUTPUT STYLES — Editorial (default) / Business / Academic
+   Overrides are scoped to #rendered-output so the app chrome
+   stays constant; only the rendered/exported content restyles.
+   ============================================================= */
+
+/* --- Business: clean sans-serif, neutral, for Office / email --- */
+body[data-style="business"] #rendered-output {
+    --font-prose: var(--font-ui);
+    --font-display: var(--font-ui);
+    --accent: #4F8FBF;
+    --accent-dim: rgba(79, 143, 191, 0.12);
+    --blue: #4F8FBF;
+    font-size: 0.9rem;
+    line-height: 1.62;
+}
+body[data-style="business"] #rendered-output h1,
+body[data-style="business"] #rendered-output h2,
+body[data-style="business"] #rendered-output h3,
+body[data-style="business"] #rendered-output h4 {
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin: 1.3em 0 0.45em;
+}
+body[data-style="business"] #rendered-output h1 {
+    font-size: 1.7rem;
+    font-style: normal;
+}
+body[data-style="business"] #rendered-output h1::after { display: none; }
+
+/* --- Academic: classic serif, formal, paper-like --- */
+body[data-style="academic"] #rendered-output {
+    --font-prose: 'Lora', Georgia, serif;
+    --font-display: 'Lora', Georgia, serif;
+    --accent: #A23E4C;
+    --accent-dim: rgba(162, 62, 76, 0.10);
+    --blue: #A23E4C;
+    font-size: 0.95rem;
+    line-height: 1.9;
+}
+body[data-style="academic"] #rendered-output p { text-align: justify; }
+body[data-style="academic"] #rendered-output h1,
+body[data-style="academic"] #rendered-output h2,
+body[data-style="academic"] #rendered-output h3,
+body[data-style="academic"] #rendered-output h4 {
+    font-weight: 600;
+    letter-spacing: 0;
+}
+body[data-style="academic"] #rendered-output h1 {
+    font-size: 1.85rem;
+    font-style: normal;
+    text-align: center;
+    border-bottom: none;
+}
+body[data-style="academic"] #rendered-output h1::after { display: none; }
 
 /* --- Footer --- */
 .app-footer {

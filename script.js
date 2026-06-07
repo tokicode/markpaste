@@ -12,6 +12,8 @@ const themeToggle = document.getElementById('theme-toggle');
 const refreshButton = document.getElementById('refresh-file');
 const saveStatus = document.getElementById('save-status');
 const md = window.markdownit();
+// Footnote support ([^1] … [^1]: …). Guarded so a CDN miss won't break rendering.
+if (window.markdownitFootnote) md.use(window.markdownitFootnote);
 
 let currentFile = null;
 let isDirty = false;
@@ -72,6 +74,7 @@ function loadFileContent(file) {
         markdownInput.value = e.target.result;
         renderMarkdown();
         updateTitle(file.path || file.name);
+        saveDraft();
         isDirty = false;
         saveStatus.textContent = '';
         saveStatus.className = 'status-indicator';
@@ -113,7 +116,44 @@ function renderMarkdown() {
 markdownInput.addEventListener('input', () => {
     renderMarkdown();
     markDirty();
+    saveDraft();
 });
+
+// --- Draft persistence (localStorage) — never lose content on refresh ---
+const DRAFT_KEY = 'markpaste:draft';
+let draftTimer = null;
+function saveDraft() {
+    clearTimeout(draftTimer);
+    draftTimer = setTimeout(() => {
+        try {
+            localStorage.setItem(DRAFT_KEY, JSON.stringify({
+                content: markdownInput.value,
+                currentFile,
+                updatedAt: Date.now()
+            }));
+        } catch { /* storage full / unavailable — ignore */ }
+    }, 400);
+}
+
+// Restore a saved draft only when nothing else has loaded content (so opening a
+// real file via ?file=/Open always wins over the draft).
+function restoreDraftIfEmpty() {
+    if (markdownInput.value.trim() !== '') return;
+    let draft;
+    try { draft = JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null'); } catch { draft = null; }
+    if (!draft || !draft.content) return;
+    markdownInput.value = draft.content;
+    renderMarkdown();
+    if (draft.currentFile) updateTitle(draft.currentFile);
+    saveStatus.textContent = '↩ draft restored';
+    saveStatus.className = 'status-indicator saved';
+    setTimeout(() => {
+        if (!isDirty) {
+            saveStatus.textContent = '';
+            saveStatus.className = 'status-indicator';
+        }
+    }, 2600);
+}
 
 // --- Save functions ---
 async function saveToServer(filePath, content) {
@@ -208,7 +248,10 @@ saveWordButton.addEventListener('click', () => {
     a.click();
 });
 
-copyClipboardButton.addEventListener('click', async () => {
+// Copy the rendered preview as rich text (text/html + text/plain) — the
+// signature feature. Reused by the Copy button and the Ctrl/⌘+Shift+C shortcut.
+const copyLabel = copyClipboardButton.querySelector('.copy-label');
+async function copyRichText() {
     try {
         const htmlContent = renderedOutput.innerHTML;
         const blob = new Blob([htmlContent], { type: 'text/html' });
@@ -219,13 +262,18 @@ copyClipboardButton.addEventListener('click', async () => {
                 'text/plain': textBlob
             })
         ]);
-        const orig = copyClipboardButton.textContent;
-        copyClipboardButton.textContent = 'Copied!';
-        setTimeout(() => { copyClipboardButton.textContent = orig; }, 1500);
+        copyLabel.textContent = 'Copied!';
+        copyClipboardButton.classList.add('copied');
+        setTimeout(() => {
+            copyLabel.textContent = 'Copy';
+            copyClipboardButton.classList.remove('copied');
+        }, 1500);
     } catch (error) {
         alert('Failed to copy: ' + error.message);
     }
-});
+}
+
+copyClipboardButton.addEventListener('click', copyRichText);
 
 // --- Toolbar actions ---
 const toolbarActions = {
@@ -350,6 +398,7 @@ async function loadFromUrl() {
         markdownInput.value = result.content;
         renderMarkdown();
         updateTitle(result.filePath);
+        saveDraft();
     } catch (error) {
         alert('Failed to open file: ' + error.message);
     }
@@ -380,6 +429,9 @@ async function loadFromUrl() {
         // Disk-only controls have no meaning without a backend.
         refreshButton.style.display = 'none';
     }
+
+    // After any file load attempt: if still empty, recover the last draft.
+    restoreDraftIfEmpty();
 })();
 
 // --- View mode toggle (editor / split / preview) ---
@@ -397,11 +449,48 @@ function setViewMode(mode) {
     Object.entries(viewBtns).forEach(([key, btn]) => {
         btn.classList.toggle('active', key === mode);
     });
+    try { localStorage.setItem('view', mode); } catch { /* ignore */ }
 }
 
 viewBtns.editor.addEventListener('click',  () => setViewMode('editor'));
 viewBtns.split.addEventListener('click',   () => setViewMode('split'));
 viewBtns.preview.addEventListener('click', () => setViewMode('preview'));
+
+// Restore last-used view mode
+const savedView = localStorage.getItem('view');
+if (savedView && viewBtns[savedView]) setViewMode(savedView);
+
+// --- Output style selector (Editorial / Business / Academic) ---
+const styleMenu = document.querySelector('.style-menu');
+const styleTrigger = document.getElementById('style-trigger');
+const styleDropdown = document.getElementById('style-dropdown');
+const styleCurrent = document.getElementById('style-current');
+const styleOptions = [...document.querySelectorAll('.style-option')];
+const STYLE_LABELS = { editorial: 'Editorial', business: 'Business', academic: 'Academic' };
+
+function applyStyle(style) {
+    if (!STYLE_LABELS[style]) style = 'editorial';
+    document.body.dataset.style = style;
+    styleCurrent.textContent = STYLE_LABELS[style];
+    styleOptions.forEach(o => o.classList.toggle('active', o.dataset.style === style));
+    try { localStorage.setItem('style', style); } catch { /* ignore */ }
+}
+
+function toggleStyleMenu(open) {
+    const willOpen = open ?? styleDropdown.hasAttribute('hidden');
+    styleDropdown.toggleAttribute('hidden', !willOpen);
+    styleTrigger.setAttribute('aria-expanded', String(willOpen));
+}
+
+styleTrigger.addEventListener('click', (e) => { e.stopPropagation(); toggleStyleMenu(); });
+styleOptions.forEach(o => o.addEventListener('click', () => {
+    applyStyle(o.dataset.style);
+    toggleStyleMenu(false);
+}));
+document.addEventListener('click', (e) => { if (!styleMenu.contains(e.target)) toggleStyleMenu(false); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') toggleStyleMenu(false); });
+
+applyStyle(localStorage.getItem('style') || 'editorial');
 
 // --- Refresh (reload current file from disk) ---
 refreshButton.addEventListener('click', async () => {
@@ -415,6 +504,7 @@ refreshButton.addEventListener('click', async () => {
         if (!response.ok) throw new Error(result.error);
         markdownInput.value = result.content;
         renderMarkdown();
+        saveDraft();
         isDirty = false;
         saveStatus.textContent = '';
         saveStatus.className = 'status-indicator';
@@ -423,7 +513,7 @@ refreshButton.addEventListener('click', async () => {
     }
 });
 
-// --- Keyboard shortcuts ---
+// --- Keyboard shortcuts (editor-scoped: formatting + save) ---
 markdownInput.addEventListener('keydown', (e) => {
     if (e.ctrlKey && e.key === 'b') {
         e.preventDefault();
@@ -434,5 +524,22 @@ markdownInput.addEventListener('keydown', (e) => {
     } else if (e.ctrlKey && e.key === 's') {
         e.preventDefault();
         saveMdButton.click();
+    }
+});
+
+// --- Global shortcuts (work regardless of focus) ---
+// Use e.code (physical key) so Alt/Option combos are unaffected by Mac dead keys.
+document.addEventListener('keydown', (e) => {
+    // Copy as rich text — Ctrl/⌘ + Shift + C
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.code === 'KeyC') {
+        e.preventDefault();
+        copyRichText();
+        return;
+    }
+    // View modes — Alt + 1 / 2 / 3
+    if (e.altKey && !e.ctrlKey && !e.metaKey) {
+        if (e.code === 'Digit1') { e.preventDefault(); setViewMode('editor'); }
+        else if (e.code === 'Digit2') { e.preventDefault(); setViewMode('split'); }
+        else if (e.code === 'Digit3') { e.preventDefault(); setViewMode('preview'); }
     }
 });
