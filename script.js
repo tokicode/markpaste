@@ -122,30 +122,32 @@ markdownInput.addEventListener('input', () => {
 // --- Draft persistence (localStorage) — never lose content on refresh ---
 const DRAFT_KEY = 'markpaste:draft';
 let draftTimer = null;
+
+function readDraft() {
+    try { return JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null'); } catch { return null; }
+}
+function writeDraftNow() {
+    try {
+        localStorage.setItem(DRAFT_KEY, JSON.stringify({
+            content: markdownInput.value,
+            currentFile,
+            updatedAt: Date.now()
+        }));
+    } catch { /* storage full / unavailable — ignore */ }
+}
 function saveDraft() {
     clearTimeout(draftTimer);
-    draftTimer = setTimeout(() => {
-        try {
-            localStorage.setItem(DRAFT_KEY, JSON.stringify({
-                content: markdownInput.value,
-                currentFile,
-                updatedAt: Date.now()
-            }));
-        } catch { /* storage full / unavailable — ignore */ }
-    }, 400);
+    draftTimer = setTimeout(writeDraftNow, 400);
 }
+// Flush synchronously right before the page unloads (reload/close), so even an
+// edit made a split-second before a refresh is never lost.
+window.addEventListener('beforeunload', () => {
+    clearTimeout(draftTimer);
+    writeDraftNow();
+});
 
-// Restore a saved draft only when nothing else has loaded content (so opening a
-// real file via ?file=/Open always wins over the draft).
-function restoreDraftIfEmpty() {
-    if (markdownInput.value.trim() !== '') return;
-    let draft;
-    try { draft = JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null'); } catch { draft = null; }
-    if (!draft || !draft.content) return;
-    markdownInput.value = draft.content;
-    renderMarkdown();
-    if (draft.currentFile) updateTitle(draft.currentFile);
-    saveStatus.textContent = '↩ draft restored';
+function showDraftRestoredHint() {
+    saveStatus.textContent = '↩ unsaved edits restored';
     saveStatus.className = 'status-indicator saved';
     setTimeout(() => {
         if (!isDirty) {
@@ -153,6 +155,19 @@ function restoreDraftIfEmpty() {
             saveStatus.className = 'status-indicator';
         }
     }, 2600);
+}
+
+// Restore a saved draft when the editor is empty (Web mode, or Local mode opened
+// with no ?file=). Opening a real file via ?file= is handled in loadFromUrl,
+// which prefers a newer draft for that same file (Design 2).
+function restoreDraftIfEmpty() {
+    if (markdownInput.value.trim() !== '') return;
+    const draft = readDraft();
+    if (!draft || !draft.content) return;
+    markdownInput.value = draft.content;
+    renderMarkdown();
+    if (draft.currentFile) updateTitle(draft.currentFile);
+    showDraftRestoredHint();
 }
 
 // --- Save functions ---
@@ -395,10 +410,24 @@ async function loadFromUrl() {
         const response = await fetch('/open-file?path=' + encodeURIComponent(filePath));
         const result = await response.json();
         if (!response.ok) throw new Error(result.error);
-        markdownInput.value = result.content;
-        renderMarkdown();
+
         updateTitle(result.filePath);
-        saveDraft();
+
+        // Design 2 (Option 2): if a draft for THIS same file holds unsaved edits
+        // that differ from disk, keep the draft (your in-progress work) on every
+        // load — page reload AND reopening in a new tab both show your edits,
+        // flagged "unsaved". The in-app ↺ Refresh button is the single action that
+        // discards the draft and reverts to the file on disk.
+        const draft = readDraft();
+        if (draft && draft.currentFile === result.filePath && draft.content !== result.content) {
+            markdownInput.value = draft.content;
+            renderMarkdown();
+            markDirty();   // persistent "● unsaved" — content differs from disk
+        } else {
+            markdownInput.value = result.content;
+            renderMarkdown();
+            saveDraft();
+        }
     } catch (error) {
         alert('Failed to open file: ' + error.message);
     }
