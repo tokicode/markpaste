@@ -81,7 +81,25 @@ app.post('/save-markdown', (req, res) => {
 // Static files last
 app.use(express.static(__dirname));
 
-// Bind to localhost only so the disk-backed endpoints are never network-reachable.
-app.listen(port, '127.0.0.1', () => {
-  console.log(`Server listening at http://localhost:${port}`);
-});
+// Bind to loopback only so the disk-backed endpoints are never network-reachable.
+// We listen on BOTH IPv4 (127.0.0.1) and IPv6 (::1) loopback because on Windows
+// "localhost" resolves to ::1 first; binding only one family makes the browser's
+// localhost request miss the server. Both are loopback, so neither exposes the
+// network. If a family is unavailable, ignore that listener gracefully.
+const loopbackHosts = ['127.0.0.1', '::1'];
+for (const host of loopbackHosts) {
+  const display = host.includes(':') ? `[${host}]` : host;
+  app
+    .listen(port, host, () => {
+      console.log(`Server listening at http://${display}:${port}`);
+    })
+    .on('error', (err) => {
+      if (err.code === 'EADDRINUSE') {
+        console.error(`Port ${port} is already in use on ${display}.`);
+      } else if (err.code === 'EAFNOSUPPORT' || err.code === 'EADDRNOTAVAIL') {
+        // This address family isn't available on this machine — skip it.
+      } else {
+        throw err;
+      }
+    });
+}
