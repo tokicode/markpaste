@@ -182,14 +182,39 @@ async function saveToServer(filePath, content) {
     return result;
 }
 
+// Strip characters that are illegal in file names (and emoji/symbols), keeping
+// CJK and normal text. Used to build safe download names.
+function sanitizeFileName(name) {
+    return name
+        .replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}\u{FE0F}]/gu, '')
+        .replace(/[<>:"/\\|?*-]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 120)
+        .trim();
+}
+
+// Base name (no path, no extension) for all exports: prefer the open file's
+// name; otherwise the document's first heading; otherwise a generic fallback.
+function exportBaseName() {
+    if (currentFile) {
+        const fromFile = sanitizeFileName(
+            currentFile.split(/[\\/]/).pop().replace(/\.(md|markdown)$/i, '')
+        );
+        if (fromFile) return fromFile;
+    }
+    const heading = renderedOutput.querySelector('h1, h2, h3');
+    const fromHeading = heading ? sanitizeFileName(heading.textContent) : '';
+    if (fromHeading) return fromHeading;
+    return 'markpaste';
+}
+
 // Web mode fallback: download the markdown as a .md file via the browser.
 function downloadMarkdown(content) {
-    const name = (currentFile ? currentFile.split(/[\\/]/).pop() : 'output.md')
-        .replace(/\.md$/i, '') + '.md';
     const blob = new Blob([content], { type: 'text/markdown' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = name;
+    a.download = exportBaseName() + '.md';
     a.click();
 }
 
@@ -235,13 +260,12 @@ saveHtmlButton.addEventListener('click', () => {
     const blob = new Blob([renderedHtml], { type: 'text/html' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = (currentFile || 'output').replace(/\.md$/, '') + '.html';
+    a.download = exportBaseName() + '.html';
     a.click();
 });
 
 savePdfButton.addEventListener('click', async () => {
-    const baseName = (currentFile ? currentFile.split(/[\\/]/).pop() : 'output')
-        .replace(/\.md$/i, '');
+    const baseName = exportBaseName();
 
     // Web mode (no backend): use the browser's native print-to-PDF. The @media
     // print stylesheet shows only the rendered output, so "Save as PDF" yields a
@@ -284,7 +308,7 @@ saveWordButton.addEventListener('click', () => {
     const blob = new Blob([wordContent], { type: 'application/msword' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = (currentFile || 'output').replace(/\.md$/, '') + '.doc';
+    a.download = exportBaseName() + '.doc';
     a.click();
 });
 
