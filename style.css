@@ -955,3 +955,68 @@ body[data-style="academic"] #rendered-output h1::after { display: none; }
         transform: translateY(0);
     }
 }
+
+/* --- Print (Web-mode "Save as PDF" fallback) ---
+   Local mode generates the PDF server-side via headless Edge/Chrome. On the
+   static web build there's no backend, so the PDF button calls window.print();
+   these rules strip the app chrome and print only the rendered output, in a
+   light, full-width, naturally-paginating layout. */
+@media print {
+    /* Hide everything that isn't the rendered document */
+    .app-header,
+    .toolbar,
+    #editor-panel,
+    .resizer,
+    .app-footer,
+    .panel-label {
+        display: none !important;
+    }
+
+    html, body {
+        background: #fff !important;
+        color: #1a1a1a !important;
+        height: auto !important;
+        overflow: visible !important;
+    }
+
+    .editor-container,
+    #preview-panel {
+        display: block !important;
+        width: 100% !important;
+        height: auto !important;
+        max-height: none !important;
+        overflow: visible !important;
+        border: none !important;
+        box-shadow: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    #rendered-output {
+        display: block !important;
+        width: auto !important;
+        height: auto !important;
+        max-height: none !important;
+        overflow: visible !important;
+        color: #1a1a1a !important;
+        background: #fff !important;
+        padding: 0 !important;
+        font-size: 11pt;
+        line-height: 1.65;
+    }
+
+    #rendered-output a { color: #1155cc !important; }
+
+    /* Keep block elements from splitting awkwardly across pages */
+    #rendered-output h1,
+    #rendered-output h2,
+    #rendered-output h3,
+    #rendered-output h4 { break-after: avoid; }
+    #rendered-output li,
+    #rendered-output blockquote,
+    #rendered-output pre,
+    #rendered-output tr,
+    #rendered-output img { break-inside: avoid; }
+
+    @page { margin: 16mm; }
+}

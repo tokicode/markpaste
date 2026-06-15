@@ -239,18 +239,43 @@ saveHtmlButton.addEventListener('click', () => {
     a.click();
 });
 
-savePdfButton.addEventListener('click', () => {
-    window.html2canvas = html2canvas;
-    window.jsPDF = window.jspdf.jsPDF;
-    html2canvas(renderedOutput).then(canvas => {
-        const imgData = canvas.toDataURL('image/png');
-        const pdf = new jsPDF();
-        const imgProps = pdf.getImageProperties(imgData);
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-        pdf.save((currentFile || 'output').replace(/\.md$/, '') + '.pdf');
-    });
+savePdfButton.addEventListener('click', async () => {
+    const baseName = (currentFile ? currentFile.split(/[\\/]/).pop() : 'output')
+        .replace(/\.md$/i, '');
+
+    // Web mode (no backend): use the browser's native print-to-PDF. The @media
+    // print stylesheet shows only the rendered output, so "Save as PDF" yields a
+    // true text-based, full-content, multi-page PDF.
+    if (!HAS_BACKEND) {
+        window.print();
+        return;
+    }
+
+    // Local mode: let the server render a true text-based PDF via headless
+    // Edge/Chrome (system fonts, full content, multi-page, tiny file) — one click.
+    try {
+        const response = await fetch('/export-pdf', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ html: renderedOutput.innerHTML, title: baseName })
+        });
+        if (!response.ok) {
+            let msg = 'PDF export failed';
+            try { msg = (await response.json()).error || msg; } catch {}
+            throw new Error(msg);
+        }
+        const blob = await response.blob();
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = baseName + '.pdf';
+        a.click();
+        URL.revokeObjectURL(a.href);
+    } catch (error) {
+        // Fall back to the browser print dialog if the server route fails.
+        alert('Server PDF export failed (' + error.message +
+              ').\nFalling back to the browser print dialog — choose "Save as PDF".');
+        window.print();
+    }
 });
 
 saveWordButton.addEventListener('click', () => {
