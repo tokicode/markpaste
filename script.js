@@ -10,6 +10,8 @@ const saveWordButton = document.getElementById('save-word');
 const copyClipboardButton = document.getElementById('copy-clipboard');
 const themeToggle = document.getElementById('theme-toggle');
 const refreshButton = document.getElementById('refresh-file');
+const clearButton = document.getElementById('clear-editor');
+const pasteButton = document.getElementById('paste-clipboard');
 const saveStatus = document.getElementById('save-status');
 const md = window.markdownit();
 // Footnote support ([^1] … [^1]: …). Guarded so a CDN miss won't break rendering.
@@ -254,6 +256,44 @@ saveAsMdButton.addEventListener('click', async () => {
         alert('Error saving file: ' + error.message);
     }
 });
+
+// --- New / Clear & paste (quickly start a fresh document) ---
+// Clear the editor to a blank, untitled document.
+function clearEditor() {
+    markdownInput.value = '';
+    updateTitle(null);          // untitled → exports fall back to heading/generic name
+    renderMarkdown();
+    isDirty = false;
+    saveStatus.textContent = '';
+    saveStatus.className = 'status-indicator';
+    saveDraft();
+    markdownInput.focus();
+}
+
+// Replace the whole document with the clipboard contents (clear + paste).
+async function clearAndPasteFromClipboard() {
+    try {
+        const text = await navigator.clipboard.readText();
+        markdownInput.value = text;
+        updateTitle(null);
+        renderMarkdown();
+        if (text.trim()) {
+            markDirty();
+        } else {
+            isDirty = false;
+            saveStatus.textContent = '';
+            saveStatus.className = 'status-indicator';
+        }
+        saveDraft();
+        markdownInput.focus();
+    } catch (err) {
+        alert('Could not read the clipboard (' + err.message +
+              ').\nAllow clipboard access, or click the editor and press Ctrl+V to paste manually.');
+    }
+}
+
+clearButton.addEventListener('click', clearEditor);
+pasteButton.addEventListener('click', clearAndPasteFromClipboard);
 
 saveHtmlButton.addEventListener('click', () => {
     const renderedHtml = renderedOutput.innerHTML;
@@ -612,6 +652,18 @@ document.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.code === 'KeyC') {
         e.preventDefault();
         copyRichText();
+        return;
+    }
+    // Clear editor (blank document) — Ctrl/⌘ + Shift + X
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.code === 'KeyX') {
+        e.preventDefault();
+        clearEditor();
+        return;
+    }
+    // Clear & paste from clipboard — Ctrl/⌘ + Shift + V
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.code === 'KeyV') {
+        e.preventDefault();
+        clearAndPasteFromClipboard();
         return;
     }
     // View modes — Alt + 1 / 2 / 3
