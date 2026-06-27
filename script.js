@@ -12,6 +12,7 @@ const themeToggle = document.getElementById('theme-toggle');
 const refreshButton = document.getElementById('refresh-file');
 const clearButton = document.getElementById('clear-editor');
 const pasteButton = document.getElementById('paste-clipboard');
+const wrapToggle = document.getElementById('wrap-toggle');
 const saveStatus = document.getElementById('save-status');
 const md = window.markdownit();
 // Footnote support ([^1] … [^1]: …). Guarded so a CDN miss won't break rendering.
@@ -40,6 +41,21 @@ function toggleTheme() {
 
 themeToggle.addEventListener('click', toggleTheme);
 initTheme();
+
+// --- Editor word wrap toggle (Alt+Z) ---
+// Default: wrap on. .no-wrap switches the editor to horizontal scrolling.
+function applyWrap(wrap) {
+    markdownInput.classList.toggle('no-wrap', !wrap);
+    wrapToggle.classList.toggle('active', wrap);
+    wrapToggle.setAttribute('aria-pressed', wrap ? 'true' : 'false');
+}
+function toggleWrap() {
+    const wrap = markdownInput.classList.contains('no-wrap'); // was off → turning on
+    applyWrap(wrap);
+    try { localStorage.setItem('wrap', wrap ? 'on' : 'off'); } catch { /* ignore */ }
+}
+applyWrap(localStorage.getItem('wrap') !== 'off');   // default: wrap on
+wrapToggle.addEventListener('click', toggleWrap);
 
 // --- Unsaved changes tracking ---
 function markDirty() {
@@ -671,5 +687,6 @@ document.addEventListener('keydown', (e) => {
         if (e.code === 'Digit1') { e.preventDefault(); setViewMode('editor'); }
         else if (e.code === 'Digit2') { e.preventDefault(); setViewMode('split'); }
         else if (e.code === 'Digit3') { e.preventDefault(); setViewMode('preview'); }
+        else if (e.code === 'KeyZ') { e.preventDefault(); toggleWrap(); }
     }
 });

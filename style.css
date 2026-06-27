@@ -375,6 +375,12 @@ body > * { position: relative; z-index: 1; }
     background: var(--accent-dim);
 }
 
+/* Active/“on” state for toggle icon buttons (e.g. word wrap) */
+.btn-icon-only.active {
+    color: var(--accent);
+    background: var(--accent-dim);
+}
+
 .btn:active { transform: scale(0.95); }
 
 .divider-v {
@@ -507,6 +513,17 @@ body > * { position: relative; z-index: 1; }
     outline: none;
     transition: border-color var(--transition), box-shadow var(--transition), background var(--transition);
     caret-color: var(--accent);
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+}
+
+/* Word-wrap toggle (Alt+Z): default wraps; .no-wrap shows long lines with
+   horizontal scrolling instead. */
+#markdown-input.no-wrap {
+    white-space: pre;
+    overflow-wrap: normal;
+    word-break: normal;
+    overflow-x: auto;
 }
 
 #markdown-input:focus {
