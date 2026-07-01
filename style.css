@@ -706,10 +706,37 @@ body > * { position: relative; z-index: 1; }
     margin-left: -1.4em;
 }
 
-#rendered-output li input[type="checkbox"] {
-    accent-color: var(--accent);
-    margin-right: 0.5em;
-    transform: translateY(1px);
+/* Custom checkbox so the checked state is always the theme green — browsers
+   grey out the plugin's disabled checkboxes, muting accent-color. */
+#rendered-output li.task-list-item input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 1em;
+    height: 1em;
+    margin: 0 0.5em 0 0;
+    border: 1.5px solid var(--border-bright);
+    border-radius: 3px;
+    background: transparent;
+    vertical-align: -0.12em;
+    position: relative;
+    cursor: default;
+}
+
+#rendered-output li.task-list-item input[type="checkbox"]:checked {
+    background: var(--accent);
+    border-color: var(--accent);
+}
+
+#rendered-output li.task-list-item input[type="checkbox"]:checked::after {
+    content: "";
+    position: absolute;
+    left: 0.3em;
+    top: 0.08em;
+    width: 0.24em;
+    height: 0.48em;
+    border: solid #fff;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
 }
 
 #rendered-output blockquote {
