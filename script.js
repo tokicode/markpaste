@@ -17,6 +17,8 @@ const saveStatus = document.getElementById('save-status');
 const md = window.markdownit();
 // Footnote support ([^1] … [^1]: …). Guarded so a CDN miss won't break rendering.
 if (window.markdownitFootnote) md.use(window.markdownitFootnote);
+// GitHub-style task lists: "- [ ] todo" / "- [x] done" render as checkboxes.
+if (window.markdownitTaskLists) md.use(window.markdownitTaskLists);
 
 let currentFile = null;
 let isDirty = false;
@@ -647,8 +649,91 @@ refreshButton.addEventListener('click', async () => {
     }
 });
 
-// --- Keyboard shortcuts (editor-scoped: formatting + save) ---
+// --- OneNote-style list & indent editing (Enter / Tab / Shift+Tab) ---
+const INDENT_UNIT = '  '; // two spaces per indent level
+
+// Remove one indent level from a leading-whitespace string.
+function outdentIndent(indent) {
+    if (indent.endsWith('\t')) return indent.slice(0, -1);
+    if (indent.endsWith('  ')) return indent.slice(0, -2);
+    if (indent.endsWith(' ')) return indent.slice(0, -1);
+    return '';
+}
+
+// Replace [from,to) with text, keeping the native undo stack, then refresh preview.
+function editorReplace(from, to, text) {
+    markdownInput.setRangeText(text, from, to, 'end');
+    markdownInput.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+// Enter: continue the current list/indentation; Enter on an empty item steps
+// out one level (then clears the marker) — like OneNote. Returns true if handled.
+function smartEnter() {
+    const ta = markdownInput;
+    if (ta.selectionStart !== ta.selectionEnd) return false;   // ignore selections
+    const caret = ta.selectionStart;
+    const v = ta.value;
+    const lineStart = v.lastIndexOf('\n', caret - 1) + 1;
+    const nl = v.indexOf('\n', caret);
+    const lineEnd = nl === -1 ? v.length : nl;
+    if (caret !== lineEnd) return false;                       // only at end of line
+    const line = v.slice(lineStart, lineEnd);
+
+    // List item: indent + bullet + optional checkbox + content
+    const list = line.match(/^([ \t]*)([-*+]|\d+\.)[ \t]+(\[[ xX]\][ \t]+)?(.*)$/);
+    if (list) {
+        const indent = list[1], bullet = list[2], checkbox = list[3], content = list[4];
+        if (content.trim() === '') {
+            if (indent) {
+                editorReplace(lineStart, lineEnd,
+                    outdentIndent(indent) + bullet + ' ' + (checkbox ? '[ ] ' : ''));
+            } else {
+                editorReplace(lineStart, lineEnd, '');           // top level → drop marker
+            }
+        } else {
+            const marker = /^\d+\.$/.test(bullet) ? (parseInt(bullet, 10) + 1) + '.' : bullet;
+            editorReplace(caret, caret, '\n' + indent + marker + ' ' + (checkbox ? '[ ] ' : ''));
+        }
+        return true;
+    }
+
+    // Plain indented line: keep indent; Enter on an empty indented line outdents.
+    const indented = line.match(/^([ \t]+)(.*)$/);
+    if (indented) {
+        const indent = indented[1], content = indented[2];
+        if (content.trim() === '') editorReplace(lineStart, lineEnd, outdentIndent(indent));
+        else editorReplace(caret, caret, '\n' + indent);
+        return true;
+    }
+    return false;
+}
+
+// Tab / Shift+Tab: indent or outdent every line touched by the selection/caret.
+function indentBlock(outdent) {
+    const ta = markdownInput, v = ta.value;
+    const blockStart = v.lastIndexOf('\n', ta.selectionStart - 1) + 1;
+    let blockEnd = v.indexOf('\n', ta.selectionEnd);
+    if (blockEnd === -1) blockEnd = v.length;
+    const lines = v.slice(blockStart, blockEnd).split('\n').map(l =>
+        outdent ? l.replace(/^(\t| {1,2})/, '') : INDENT_UNIT + l
+    );
+    ta.setRangeText(lines.join('\n'), blockStart, blockEnd, 'preserve');
+    ta.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+// --- Keyboard shortcuts (editor-scoped: lists, formatting, save) ---
 markdownInput.addEventListener('keydown', (e) => {
+    // Smart Enter — but NEVER while composing (Japanese/IME Enter confirms text).
+    if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229 &&
+        !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        if (smartEnter()) { e.preventDefault(); return; }
+    }
+    // Tab / Shift+Tab — indent / outdent list lines
+    if (e.key === 'Tab' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        indentBlock(e.shiftKey);
+        return;
+    }
     if (e.ctrlKey && e.key === 'b') {
         e.preventDefault();
         applyToolbarAction(toolbarActions.bold);
