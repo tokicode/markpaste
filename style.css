@@ -699,6 +699,13 @@ body > * { position: relative; z-index: 1; }
 
 #rendered-output li { margin: 0.3em 0; }
 
+/* Task-list items: drop the bullet so only the checkbox shows, and pull the
+   checkbox back to the list's left edge. */
+#rendered-output li.task-list-item {
+    list-style: none;
+    margin-left: -1.4em;
+}
+
 #rendered-output li input[type="checkbox"] {
     accent-color: var(--accent);
     margin-right: 0.5em;
