@@ -721,6 +721,91 @@ function indentBlock(outdent) {
     ta.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
+// --- Line-level formatting (headings, lists, checkbox, star, move line) ---
+// Split a line into indentation, a leading list/heading marker, and the content.
+function parseLine(line) {
+    const m = line.match(/^([ \t]*)((?:[-*+][ \t]+(?:\[[ xX]\][ \t]+)?|\d+\.[ \t]+|#{1,6}[ \t]+))?(.*)$/);
+    return { indent: m[1], marker: m[2] || '', content: m[3] };
+}
+
+// Apply transform({indent,marker,content}) -> newLine to the caret's line.
+function modifyLine(transform) {
+    const ta = markdownInput, v = ta.value;
+    const caret = ta.selectionStart;
+    const lineStart = v.lastIndexOf('\n', caret - 1) + 1;
+    const nl = v.indexOf('\n', caret);
+    const lineEnd = nl === -1 ? v.length : nl;
+    const newLine = transform(parseLine(v.slice(lineStart, lineEnd)));
+    const fromEnd = Math.max(0, lineEnd - caret);   // keep caret's distance from line end
+    ta.setRangeText(newLine, lineStart, lineEnd, 'end');
+    const newCaret = Math.max(lineStart, lineStart + newLine.length - fromEnd);
+    ta.setSelectionRange(newCaret, newCaret);
+    ta.dispatchEvent(new Event('input', { bubbles: true }));
+    ta.focus();
+}
+
+function setHeading(n) {
+    modifyLine(({ indent, marker, content }) => {
+        const hashes = (marker.match(/^(#+)/) || [, ''])[1];
+        if (hashes.length === n) return indent + content;        // same level → toggle off
+        return indent + '#'.repeat(n) + ' ' + content;           // set (replaces any marker)
+    });
+}
+
+function toggleList(kind) {
+    modifyLine(({ indent, marker, content }) => {
+        const isUL = /^[-*+][ \t]/.test(marker) && !/\[/.test(marker);
+        const isOL = /^\d+\.[ \t]/.test(marker);
+        if (kind === 'ul') return indent + (isUL ? '' : '- ') + content;
+        return indent + (isOL ? '' : '1. ') + content;
+    });
+}
+
+function toggleCheckbox() {
+    modifyLine(({ indent, marker, content }) => {
+        const isCheck = /^[-*+][ \t]+\[[ xX]\]/.test(marker);
+        return indent + (isCheck ? '' : '- [ ] ') + content;
+    });
+}
+
+const STAR = '⭐';
+function toggleStar() {
+    modifyLine(({ indent, marker, content }) => {
+        if (content.startsWith(STAR)) return indent + marker + content.replace(/^⭐\s*/, '');
+        return indent + marker + STAR + ' ' + content;
+    });
+}
+
+// Move the caret's line up (-1) or down (+1), swapping with its neighbour.
+function moveLine(dir) {
+    const ta = markdownInput, v = ta.value;
+    const caret = ta.selectionStart;
+    const curStart = v.lastIndexOf('\n', caret - 1) + 1;
+    const curNl = v.indexOf('\n', caret);
+    const curEnd = curNl === -1 ? v.length : curNl;
+    const curLine = v.slice(curStart, curEnd);
+    const col = caret - curStart;
+    if (dir === -1) {
+        if (curStart === 0) return;                              // already first line
+        const prevStart = v.lastIndexOf('\n', curStart - 2) + 1;
+        const prevLine = v.slice(prevStart, curStart - 1);
+        ta.setRangeText(curLine + '\n' + prevLine, prevStart, curEnd, 'preserve');
+        const nc = prevStart + Math.min(col, curLine.length);
+        ta.setSelectionRange(nc, nc);
+    } else {
+        if (curNl === -1) return;                                // already last line
+        const nextStart = curNl + 1;
+        const nextNl = v.indexOf('\n', nextStart);
+        const nextEnd = nextNl === -1 ? v.length : nextNl;
+        const nextLine = v.slice(nextStart, nextEnd);
+        ta.setRangeText(nextLine + '\n' + curLine, curStart, nextEnd, 'preserve');
+        const nc = curStart + nextLine.length + 1 + Math.min(col, curLine.length);
+        ta.setSelectionRange(nc, nc);
+    }
+    ta.dispatchEvent(new Event('input', { bubbles: true }));
+    ta.focus();
+}
+
 // --- Keyboard shortcuts (editor-scoped: lists, formatting, save) ---
 markdownInput.addEventListener('keydown', (e) => {
     // Smart Enter — but NEVER while composing (Japanese/IME Enter confirms text).
@@ -733,6 +818,34 @@ markdownInput.addEventListener('keydown', (e) => {
         e.preventDefault();
         indentBlock(e.shiftKey);
         return;
+    }
+    // Headings H1–H5 — Ctrl+Alt+1..5
+    if (e.ctrlKey && e.altKey && !e.shiftKey && !e.metaKey && /^Digit[1-5]$/.test(e.code)) {
+        e.preventDefault();
+        setHeading(+e.code.slice(5));
+        return;
+    }
+    // Lists — Ctrl+. (bullet)  /  Ctrl+/ (numbered)  (OneNote style)
+    if (e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey && e.code === 'Period') {
+        e.preventDefault(); toggleList('ul'); return;
+    }
+    if (e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey && e.code === 'Slash') {
+        e.preventDefault(); toggleList('ol'); return;
+    }
+    // Checkbox — Ctrl+Alt+C  (Ctrl+1 is reserved by browsers for tab switching)
+    if (e.ctrlKey && e.altKey && !e.shiftKey && !e.metaKey && e.code === 'KeyC') {
+        e.preventDefault(); toggleCheckbox(); return;
+    }
+    // Star ⭐ at line start — Ctrl+Alt+S  (Ctrl+2 is reserved by browsers)
+    if (e.ctrlKey && e.altKey && !e.shiftKey && !e.metaKey && e.code === 'KeyS') {
+        e.preventDefault(); toggleStar(); return;
+    }
+    // Move current line — Alt+Shift+Up / Down
+    if (e.altKey && e.shiftKey && !e.ctrlKey && !e.metaKey && e.code === 'ArrowUp') {
+        e.preventDefault(); moveLine(-1); return;
+    }
+    if (e.altKey && e.shiftKey && !e.ctrlKey && !e.metaKey && e.code === 'ArrowDown') {
+        e.preventDefault(); moveLine(1); return;
     }
     if (e.ctrlKey && e.key === 'b') {
         e.preventDefault();
