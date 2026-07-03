@@ -4,7 +4,8 @@
   "description": "A fast Markdown editor with live preview and one-click copy to rich text you can paste straight into Word, Outlook, Gmail, or Slack.",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "build:standalone": "node build-standalone.js"
   },
   "keywords": [
     "markdown",
@@ -23,5 +24,10 @@
   "type": "commonjs",
   "dependencies": {
     "express": "^5.1.0"
+  },
+  "devDependencies": {
+    "markdown-it": "^12.3.2",
+    "markdown-it-footnote": "^3.0.3",
+    "markdown-it-task-lists": "^2.1.1"
   }
 }
