@@ -40,20 +40,19 @@ The local server lets you read and write `.md` files on disk and **binds to `127
 MD_BASE_DIR=/path/to/notes npm start
 ```
 
-## Offline single-file edition
+## Local edition (single file)
 
-Build one self-contained `markpaste-standalone.html` (style, script, and the
-markdown-it libraries all inlined) to share or run without a server:
+Build one self-contained `markpaste-local.html` (style, script, and the
+markdown-it libraries all inlined) to run locally or share with colleagues:
 
 ```bash
 npm install
-npm run build:standalone
+npm run build:local
 ```
 
 Double-click the resulting file to open it in any browser — no install, no
-server, works offline (Google Fonts degrade to system fonts when offline).
-It runs in Web mode: edit, live preview, Copy to clipboard, export HTML/Word,
-and PDF via the browser's print dialog.
+server. It runs in Web mode: edit, live preview, Copy to clipboard, export
+HTML/Word, and PDF via the browser's print dialog.
 
 ## Tech stack
 

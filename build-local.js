@@ -1,19 +1,20 @@
-// Build a single self-contained MarkPaste HTML file for offline sharing.
+// Build the MarkPaste "local edition" — a single self-contained HTML file to
+// run locally or share with colleagues.
 //
 //   npm install        (once, to fetch the markdown-it libraries)
-//   npm run build:standalone
+//   npm run build:local
 //
 // It inlines style.css, script.js, and the three markdown-it libraries (from
-// node_modules) into one markpaste-standalone.html. Opened via file:// it runs
-// in Web mode: edit, live preview, Copy to clipboard, export HTML/Word, and PDF
-// via the browser's print dialog — no server, no internet needed. (Google Fonts
-// degrade to system fonts offline; everything else is embedded.)
+// node_modules) into one markpaste-local.html, and drops the footer's GitHub /
+// Buy-me-a-coffee links. Double-click to open in any browser: edit, live
+// preview, Copy to clipboard, export HTML/Word, and PDF via the print dialog —
+// no server. Google Fonts still load over the network for full-quality type.
 
 const fs = require('fs');
 const path = require('path');
 
 const ROOT = __dirname;
-const OUT = path.join(ROOT, 'markpaste-standalone.html');
+const OUT = path.join(ROOT, 'markpaste-local.html');
 
 // Read minified UMD builds from node_modules (no network — works behind proxies).
 const LIBS = [
@@ -62,6 +63,9 @@ html = html.replace(
   /<script src="script\.js"><\/script>/,
   () => `${libTags}\n<script>\n${safe(js)}\n</script>`
 );
+
+// Local edition: drop the footer's GitHub / Buy-me-a-coffee links.
+html = html.replace(/[ \t]*<nav class="footer-links">[\s\S]*?<\/nav>\r?\n?/, '');
 
 fs.writeFileSync(OUT, html, 'utf8');
 console.log(`Wrote ${OUT} (${(Buffer.byteLength(html) / 1024).toFixed(0)} KB)`);

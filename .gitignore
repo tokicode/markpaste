@@ -2,5 +2,5 @@ node_modules/
 .claude/
 nul
 
-# Generated offline single-file build (run: npm run build:standalone)
-markpaste-standalone.html
+# Generated local-edition single-file build (run: npm run build:local)
+markpaste-local.html
