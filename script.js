@@ -167,10 +167,16 @@ function saveDraft() {
     draftTimer = setTimeout(writeDraftNow, 400);
 }
 // Flush synchronously right before the page unloads (reload/close), so even an
-// edit made a split-second before a refresh is never lost.
-window.addEventListener('beforeunload', () => {
+// edit made a split-second before a refresh is never lost. If there are
+// unsaved changes, also ask the browser to show its "Leave site?" prompt
+// (covers Ctrl+W, tab close, and closing the whole window).
+window.addEventListener('beforeunload', (e) => {
     clearTimeout(draftTimer);
     writeDraftNow();
+    if (isDirty) {
+        e.preventDefault();
+        e.returnValue = '';   // required by Chrome/Edge to show the prompt
+    }
 });
 
 function showDraftRestoredHint() {
