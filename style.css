@@ -1021,7 +1021,7 @@ body[data-style="academic"] #rendered-output h1::after { display: none; }
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow);
     padding: 0.45rem 0.55rem;
-    min-width: 300px;
+    min-width: 340px;
 }
 
 .find-bar.open { display: block; }
@@ -1074,6 +1074,19 @@ body[data-style="academic"] #rendered-output h1::after { display: none; }
 
 .find-btn:hover,
 .find-btn-text:hover {
+    color: var(--accent);
+    background: var(--accent-dim);
+}
+
+.find-toggle {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    padding: 0.3rem 0.38rem;
+}
+
+#find-word { text-decoration: underline; }
+
+.find-toggle.active {
     color: var(--accent);
     background: var(--accent-dim);
 }

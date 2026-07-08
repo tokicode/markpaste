@@ -945,20 +945,34 @@ markdownInput.addEventListener('keydown', (e) => {
 // Plain-text, case-insensitive search over the editor. A textarea can't
 // highlight every match, so we select + scroll to the current one and show a
 // "3/14" counter — VS Code-style navigation with Enter / Shift+Enter.
-let findMatches = [];
+let findMatches = [];            // [{start, end}]
+let findMatchCase = false;       // Aa  (Alt+C in the find input)
+let findWholeWord = false;       // ab  (Alt+W)
+let findUseRegex = false;        // .*  (Alt+R)
 
 const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
+// Build the search regex from the term + option toggles.
+// global=true for scanning the document; false for one-off tests.
+function buildFindRegex(global = true) {
+    let src = findInput.value;
+    if (!src) return null;
+    if (!findUseRegex) src = escapeRegExp(src);
+    if (findWholeWord) src = '\\b(?:' + src + ')\\b';
+    const flags = (global ? 'g' : '') + (findMatchCase ? '' : 'i');
+    try { return new RegExp(src, flags); } catch { return null; }   // invalid pattern
+}
+
 function refreshFindMatches() {
-    const term = findInput.value;
     findMatches = [];
-    if (!term) { findCount.textContent = ''; return; }
-    const hay = markdownInput.value.toLowerCase();
-    const needle = term.toLowerCase();
-    let i = 0;
-    while ((i = hay.indexOf(needle, i)) !== -1) {
-        findMatches.push(i);
-        i += needle.length || 1;
+    if (!findInput.value) { findCount.textContent = ''; return; }
+    const re = buildFindRegex(true);
+    if (!re) { findCount.textContent = '⚠ regex'; return; }
+    const v = markdownInput.value;
+    let m;
+    while ((m = re.exec(v)) !== null) {
+        findMatches.push({ start: m.index, end: m.index + m[0].length });
+        if (m[0].length === 0) re.lastIndex++;   // guard zero-length matches
     }
     if (!findMatches.length) findCount.textContent = '0/0';
 }
@@ -974,20 +988,19 @@ function gotoFindMatch(dir) {
     refreshFindMatches();
     const n = findMatches.length;
     if (!n) return;
-    const term = findInput.value;
     let idx;
     if (dir >= 0) {
-        idx = findMatches.findIndex(p => p >= markdownInput.selectionEnd);
+        idx = findMatches.findIndex(m => m.start >= markdownInput.selectionEnd);
         if (idx === -1) idx = 0;                              // wrap to top
     } else {
         idx = -1;
         for (let k = n - 1; k >= 0; k--) {
-            if (findMatches[k] < markdownInput.selectionStart) { idx = k; break; }
+            if (findMatches[k].start < markdownInput.selectionStart) { idx = k; break; }
         }
         if (idx === -1) idx = n - 1;                          // wrap to bottom
     }
-    const pos = findMatches[idx];
-    markdownInput.setSelectionRange(pos, pos + term.length);
+    const m = findMatches[idx];
+    markdownInput.setSelectionRange(m.start, m.end);
     scrollEditorToSelection();
     findCount.textContent = `${idx + 1}/${n}`;
 }
@@ -1010,26 +1023,35 @@ function closeFindBar() {
     markdownInput.focus();
 }
 
+// In regex mode the replacement string may use $1, $& etc.; in plain mode any
+// "$" is literal, so escape it for String.replace.
+function replacementText() {
+    return findUseRegex ? replaceInput.value : replaceInput.value.replace(/\$/g, '$$$$');
+}
+
 function replaceCurrent() {
-    const term = findInput.value;
-    if (!term) return;
+    if (!findInput.value) return;
+    refreshFindMatches();
     const s = markdownInput.selectionStart, e = markdownInput.selectionEnd;
-    if (markdownInput.value.slice(s, e).toLowerCase() === term.toLowerCase()) {
-        markdownInput.setRangeText(replaceInput.value, s, e, 'end');
+    const cur = findMatches.find(m => m.start === s && m.end === e);
+    if (cur) {
+        const re1 = buildFindRegex(false);
+        const slice = markdownInput.value.slice(s, e);
+        const newText = re1 ? slice.replace(re1, replacementText()) : replaceInput.value;
+        markdownInput.setRangeText(newText, s, e, 'end');
         markdownInput.dispatchEvent(new Event('input', { bubbles: true }));
     }
     gotoFindMatch(1);
 }
 
 function replaceAllMatches() {
-    const term = findInput.value;
-    if (!term) return;
+    if (!findInput.value) return;
     refreshFindMatches();
     const n = findMatches.length;
     if (!n) return;
-    const re = new RegExp(escapeRegExp(term), 'gi');
-    const rep = replaceInput.value.replace(/\$/g, '$$$$');
-    const nv = markdownInput.value.replace(re, rep);
+    const re = buildFindRegex(true);
+    if (!re) return;
+    const nv = markdownInput.value.replace(re, replacementText());
     markdownInput.setRangeText(nv, 0, markdownInput.value.length, 'start');
     markdownInput.dispatchEvent(new Event('input', { bubbles: true }));
     findCount.textContent = `replaced ${n}`;
@@ -1039,15 +1061,15 @@ function replaceAllMatches() {
 // The textarea can't multi-select like VS Code's "Select All Occurrences",
 // so this acts on whole matching lines in one click, which is the real goal.
 function copyOrCutMatchingLines(cut) {
-    const term = findInput.value;
-    if (!term) return;
-    const needle = term.toLowerCase();
+    if (!findInput.value) return;
+    const re = buildFindRegex(false);   // stateless test per line, honours Aa/ab/.*
+    if (!re) { findCount.textContent = '⚠ regex'; return; }
     const all = markdownInput.value.split('\n');
-    const matched = all.filter(l => l.toLowerCase().includes(needle));
+    const matched = all.filter(l => re.test(l));
     if (!matched.length) { findCount.textContent = '0 lines'; return; }
     navigator.clipboard.writeText(matched.join('\n')).then(() => {
         if (cut) {
-            const rest = all.filter(l => !l.toLowerCase().includes(needle));
+            const rest = all.filter(l => !re.test(l));
             markdownInput.setRangeText(rest.join('\n'), 0, markdownInput.value.length, 'start');
             markdownInput.dispatchEvent(new Event('input', { bubbles: true }));
         }
@@ -1057,6 +1079,22 @@ function copyOrCutMatchingLines(cut) {
 
 document.getElementById('copy-lines').addEventListener('click', () => copyOrCutMatchingLines(false));
 document.getElementById('cut-lines').addEventListener('click', () => copyOrCutMatchingLines(true));
+
+// --- Find option toggles (Aa / ab / .*) ---
+function toggleFindOption(which) {
+    if (which === 'case') findMatchCase = !findMatchCase;
+    if (which === 'word') findWholeWord = !findWholeWord;
+    if (which === 'regex') findUseRegex = !findUseRegex;
+    document.getElementById('find-case').classList.toggle('active', findMatchCase);
+    document.getElementById('find-word').classList.toggle('active', findWholeWord);
+    document.getElementById('find-regex').classList.toggle('active', findUseRegex);
+    markdownInput.setSelectionRange(markdownInput.selectionStart, markdownInput.selectionStart);
+    gotoFindMatch(1);
+    findInput.focus();
+}
+document.getElementById('find-case').addEventListener('click', () => toggleFindOption('case'));
+document.getElementById('find-word').addEventListener('click', () => toggleFindOption('word'));
+document.getElementById('find-regex').addEventListener('click', () => toggleFindOption('regex'));
 
 findInput.addEventListener('input', () => {
     // Stay on the match under the caret while the term is being typed.
@@ -1070,7 +1108,10 @@ document.getElementById('replace-one').addEventListener('click', replaceCurrent)
 document.getElementById('replace-all').addEventListener('click', replaceAllMatches);
 
 findInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && e.altKey) { e.preventDefault(); copyOrCutMatchingLines(false); }
+    if (e.altKey && e.code === 'KeyC') { e.preventDefault(); toggleFindOption('case'); }
+    else if (e.altKey && e.code === 'KeyW') { e.preventDefault(); toggleFindOption('word'); }
+    else if (e.altKey && e.code === 'KeyR') { e.preventDefault(); toggleFindOption('regex'); }
+    else if (e.key === 'Enter' && e.altKey) { e.preventDefault(); copyOrCutMatchingLines(false); }
     else if (e.key === 'Enter') { e.preventDefault(); gotoFindMatch(e.shiftKey ? -1 : 1); }
     else if (e.key === 'Escape') { e.preventDefault(); closeFindBar(); }
 });
@@ -1095,6 +1136,7 @@ function renderShortcutsDialog() {
             ['Find', [K_MOD, 'F']],
             ['Replace', IS_MAC ? [K_ALT, K_MOD, 'F'] : [K_MOD, 'H']],
             ['Copy matching lines (in Find)', [K_ALT, 'Enter']],
+            ['Find options: case / word / regex', [K_ALT, 'C / W / R']],
             ['Keyboard shortcuts', [K_MOD, 'K']],
         ]},
         { title: 'Lines', items: [
