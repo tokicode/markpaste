@@ -1035,6 +1035,29 @@ function replaceAllMatches() {
     findCount.textContent = `replaced ${n}`;
 }
 
+// Copy — or cut (copy + delete) — every line containing the search term.
+// The textarea can't multi-select like VS Code's "Select All Occurrences",
+// so this acts on whole matching lines in one click, which is the real goal.
+function copyOrCutMatchingLines(cut) {
+    const term = findInput.value;
+    if (!term) return;
+    const needle = term.toLowerCase();
+    const all = markdownInput.value.split('\n');
+    const matched = all.filter(l => l.toLowerCase().includes(needle));
+    if (!matched.length) { findCount.textContent = '0 lines'; return; }
+    navigator.clipboard.writeText(matched.join('\n')).then(() => {
+        if (cut) {
+            const rest = all.filter(l => !l.toLowerCase().includes(needle));
+            markdownInput.setRangeText(rest.join('\n'), 0, markdownInput.value.length, 'start');
+            markdownInput.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        findCount.textContent = `${cut ? 'cut' : 'copied'} ${matched.length} line${matched.length > 1 ? 's' : ''}`;
+    }).catch(err => alert('Could not write to the clipboard: ' + err.message));
+}
+
+document.getElementById('copy-lines').addEventListener('click', () => copyOrCutMatchingLines(false));
+document.getElementById('cut-lines').addEventListener('click', () => copyOrCutMatchingLines(true));
+
 findInput.addEventListener('input', () => {
     // Stay on the match under the caret while the term is being typed.
     markdownInput.setSelectionRange(markdownInput.selectionStart, markdownInput.selectionStart);
@@ -1047,7 +1070,8 @@ document.getElementById('replace-one').addEventListener('click', replaceCurrent)
 document.getElementById('replace-all').addEventListener('click', replaceAllMatches);
 
 findInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); gotoFindMatch(e.shiftKey ? -1 : 1); }
+    if (e.key === 'Enter' && e.altKey) { e.preventDefault(); copyOrCutMatchingLines(false); }
+    else if (e.key === 'Enter') { e.preventDefault(); gotoFindMatch(e.shiftKey ? -1 : 1); }
     else if (e.key === 'Escape') { e.preventDefault(); closeFindBar(); }
 });
 replaceInput.addEventListener('keydown', (e) => {
@@ -1070,6 +1094,7 @@ function renderShortcutsDialog() {
             ['Clear & paste', [K_MOD, K_SHIFT, 'V']],
             ['Find', [K_MOD, 'F']],
             ['Replace', IS_MAC ? [K_ALT, K_MOD, 'F'] : [K_MOD, 'H']],
+            ['Copy matching lines (in Find)', [K_ALT, 'Enter']],
             ['Keyboard shortcuts', [K_MOD, 'K']],
         ]},
         { title: 'Lines', items: [

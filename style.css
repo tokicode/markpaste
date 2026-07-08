@@ -1078,6 +1078,14 @@ body[data-style="academic"] #rendered-output h1::after { display: none; }
     background: var(--accent-dim);
 }
 
+.find-lines-label {
+    flex: 1;
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    color: var(--text-muted-s);
+    white-space: nowrap;
+}
+
 /* --- Keyboard shortcuts dialog (Ctrl+K) — Teams-style --- */
 .shortcuts-overlay {
     display: none;
