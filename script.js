@@ -896,12 +896,13 @@ markdownInput.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.code === 'Slash') {
         e.preventDefault(); toggleList('ol'); return;
     }
-    // Checkbox — Ctrl/⌘+Alt+C  (Ctrl+1 is reserved by browsers for tab switching)
-    if ((e.ctrlKey || e.metaKey) && e.altKey && !e.shiftKey && e.code === 'KeyC') {
+    // Checkbox — Alt+C (Ctrl/⌘+Alt+C also works). Plain Alt+letter, because
+    // enterprise tools like Citrix Workspace swallow Ctrl+Alt+letter globally.
+    if (e.altKey && !e.shiftKey && e.code === 'KeyC') {
         e.preventDefault(); toggleCheckbox(); return;
     }
-    // Star ⭐ at line start — Ctrl/⌘+Alt+S  (Ctrl+2 is reserved by browsers)
-    if ((e.ctrlKey || e.metaKey) && e.altKey && !e.shiftKey && e.code === 'KeyS') {
+    // Star ⭐ at line start — Alt+S (Ctrl/⌘+Alt+S also works)
+    if (e.altKey && !e.shiftKey && e.code === 'KeyS') {
         e.preventDefault(); toggleStar(); return;
     }
     // Move line — Alt+Up / Down (VS Code)
@@ -1079,8 +1080,8 @@ function renderShortcutsDialog() {
             ['Heading 1–5', [K_MOD, K_ALT, '1–5']],
             ['Bullet list', [K_MOD, '.']],
             ['Numbered list', [K_MOD, '/']],
-            ['Checkbox', [K_MOD, K_ALT, 'C']],
-            ['Star line', [K_MOD, K_ALT, 'S']],
+            ['Checkbox', [K_ALT, 'C']],
+            ['Star line', [K_ALT, 'S']],
         ]},
         { title: 'View', items: [
             ['Editor / Split / Preview', [K_ALT, '1 / 2 / 3']],
