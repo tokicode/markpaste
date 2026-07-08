@@ -73,6 +73,7 @@
                 <span class="copy-label">Copy</span>
             </button>
             <span class="divider-v"></span>
+            <button id="shortcuts-btn" class="btn btn-icon-only" title="Keyboard shortcuts (Ctrl+K)">⌨</button>
             <button id="wrap-toggle" class="btn btn-icon-only" title="Toggle word wrap (Alt+Z)" aria-pressed="true">
                 <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M2 4h12M2 8h8.5a2.5 2.5 0 0 1 0 5H7.5m0 0L9 11.5M7.5 13 9 14.5M2 12h3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </button>
@@ -117,6 +118,20 @@
     <div class="editor-container">
         <div class="panel-wrapper" id="editor-panel">
             <div class="panel-label">Editor</div>
+            <div class="find-bar" id="find-bar">
+                <div class="find-row">
+                    <input type="text" id="find-input" placeholder="Find" autocomplete="off" spellcheck="false">
+                    <span class="find-count" id="find-count"></span>
+                    <button class="find-btn" id="find-prev" title="Previous match (Shift+Enter)">↑</button>
+                    <button class="find-btn" id="find-next" title="Next match (Enter)">↓</button>
+                    <button class="find-btn" id="find-close" title="Close (Esc)">✕</button>
+                </div>
+                <div class="find-row" id="replace-row">
+                    <input type="text" id="replace-input" placeholder="Replace" autocomplete="off" spellcheck="false">
+                    <button class="find-btn-text" id="replace-one">Replace</button>
+                    <button class="find-btn-text" id="replace-all">All</button>
+                </div>
+            </div>
             <textarea id="markdown-input" placeholder="Start writing… or drag & drop a .md file here"></textarea>
         </div>
         <div class="resizer" id="resizer"><div class="resizer-handle"></div></div>
@@ -139,6 +154,16 @@
             </a>
         </nav>
     </footer>
+
+    <div class="shortcuts-overlay" id="shortcuts-overlay">
+        <div class="shortcuts-dialog" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts">
+            <div class="shortcuts-head">
+                <h2>Keyboard shortcuts</h2>
+                <button class="find-btn" id="shortcuts-close" title="Close (Esc)">✕</button>
+            </div>
+            <div class="shortcuts-body" id="shortcuts-body"></div>
+        </div>
+    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/markdown-it@12.3.2/dist/markdown-it.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/markdown-it-footnote@3.0.3/dist/markdown-it-footnote.min.js"></script>

@@ -14,6 +14,13 @@ const clearButton = document.getElementById('clear-editor');
 const pasteButton = document.getElementById('paste-clipboard');
 const wrapToggle = document.getElementById('wrap-toggle');
 const saveStatus = document.getElementById('save-status');
+const findBar = document.getElementById('find-bar');
+const findInput = document.getElementById('find-input');
+const findCount = document.getElementById('find-count');
+const replaceRow = document.getElementById('replace-row');
+const replaceInput = document.getElementById('replace-input');
+const shortcutsOverlay = document.getElementById('shortcuts-overlay');
+const shortcutsBody = document.getElementById('shortcuts-body');
 const md = window.markdownit();
 // Footnote support ([^1] … [^1]: …). Guarded so a CDN miss won't break rendering.
 if (window.markdownitFootnote) md.use(window.markdownitFootnote);
@@ -806,6 +813,63 @@ function moveLine(dir) {
     ta.focus();
 }
 
+// Duplicate the caret's line; dir -1 keeps the caret on the upper copy,
+// dir +1 moves it to the lower copy (VS Code Shift+Alt+Up/Down).
+function duplicateLine(dir) {
+    const ta = markdownInput, v = ta.value;
+    const caret = ta.selectionStart;
+    const start = v.lastIndexOf('\n', caret - 1) + 1;
+    const nl = v.indexOf('\n', caret);
+    const end = nl === -1 ? v.length : nl;
+    const line = v.slice(start, end);
+    const col = caret - start;
+    ta.setRangeText(line + '\n' + line, start, end, 'preserve');
+    const base = dir === 1 ? start + line.length + 1 : start;
+    ta.setSelectionRange(base + col, base + col);
+    ta.dispatchEvent(new Event('input', { bubbles: true }));
+    ta.focus();
+}
+
+// Delete the caret's whole line (VS Code Ctrl+Shift+K).
+function deleteLine() {
+    const ta = markdownInput, v = ta.value;
+    const caret = ta.selectionStart;
+    const start = v.lastIndexOf('\n', caret - 1) + 1;
+    const nl = v.indexOf('\n', caret);
+    const col = caret - start;
+    let from = start;
+    let to = nl === -1 ? v.length : nl + 1;
+    if (nl === -1 && start > 0) from = start - 1;   // last line: eat preceding \n
+    ta.setRangeText('', from, to, 'start');
+    const v2 = ta.value;
+    const ls = v2.lastIndexOf('\n', from - 1) + 1;
+    const ne = v2.indexOf('\n', ls);
+    const le = ne === -1 ? v2.length : ne;
+    const nc = Math.min(ls + col, le);
+    ta.setSelectionRange(nc, nc);
+    ta.dispatchEvent(new Event('input', { bubbles: true }));
+    ta.focus();
+}
+
+// Insert a blank line below/above the caret's line, keeping its indentation
+// (VS Code Ctrl+Enter / Ctrl+Shift+Enter).
+function insertLine(above) {
+    const ta = markdownInput, v = ta.value;
+    const caret = ta.selectionStart;
+    const start = v.lastIndexOf('\n', caret - 1) + 1;
+    const nl = v.indexOf('\n', caret);
+    const end = nl === -1 ? v.length : nl;
+    const indent = (v.slice(start, end).match(/^[ \t]*/) || [''])[0];
+    if (above) {
+        ta.setRangeText(indent + '\n', start, start, 'start');
+        ta.setSelectionRange(start + indent.length, start + indent.length);
+    } else {
+        ta.setRangeText('\n' + indent, end, end, 'end');
+    }
+    ta.dispatchEvent(new Event('input', { bubbles: true }));
+    ta.focus();
+}
+
 // --- Keyboard shortcuts (editor-scoped: lists, formatting, save) ---
 markdownInput.addEventListener('keydown', (e) => {
     // Smart Enter — but NEVER while composing (Japanese/IME Enter confirms text).
@@ -819,49 +883,254 @@ markdownInput.addEventListener('keydown', (e) => {
         indentBlock(e.shiftKey);
         return;
     }
-    // Headings H1–H5 — Ctrl+Alt+1..5
-    if (e.ctrlKey && e.altKey && !e.shiftKey && !e.metaKey && /^Digit[1-5]$/.test(e.code)) {
+    // Headings H1–H5 — Ctrl/⌘+Alt+1..5
+    if ((e.ctrlKey || e.metaKey) && e.altKey && !e.shiftKey && /^Digit[1-5]$/.test(e.code)) {
         e.preventDefault();
         setHeading(+e.code.slice(5));
         return;
     }
-    // Lists — Ctrl+. (bullet)  /  Ctrl+/ (numbered)  (OneNote style)
-    if (e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey && e.code === 'Period') {
+    // Lists — Ctrl/⌘+. (bullet)  /  Ctrl/⌘+/ (numbered)  (OneNote style)
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.code === 'Period') {
         e.preventDefault(); toggleList('ul'); return;
     }
-    if (e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey && e.code === 'Slash') {
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.code === 'Slash') {
         e.preventDefault(); toggleList('ol'); return;
     }
-    // Checkbox — Ctrl+Alt+C  (Ctrl+1 is reserved by browsers for tab switching)
-    if (e.ctrlKey && e.altKey && !e.shiftKey && !e.metaKey && e.code === 'KeyC') {
+    // Checkbox — Ctrl/⌘+Alt+C  (Ctrl+1 is reserved by browsers for tab switching)
+    if ((e.ctrlKey || e.metaKey) && e.altKey && !e.shiftKey && e.code === 'KeyC') {
         e.preventDefault(); toggleCheckbox(); return;
     }
-    // Star ⭐ at line start — Ctrl+Alt+S  (Ctrl+2 is reserved by browsers)
-    if (e.ctrlKey && e.altKey && !e.shiftKey && !e.metaKey && e.code === 'KeyS') {
+    // Star ⭐ at line start — Ctrl/⌘+Alt+S  (Ctrl+2 is reserved by browsers)
+    if ((e.ctrlKey || e.metaKey) && e.altKey && !e.shiftKey && e.code === 'KeyS') {
         e.preventDefault(); toggleStar(); return;
     }
-    // Move current line — Alt+Shift+Up / Down
-    if (e.altKey && e.shiftKey && !e.ctrlKey && !e.metaKey && e.code === 'ArrowUp') {
-        e.preventDefault(); moveLine(-1); return;
+    // Move line — Alt+Up / Down (VS Code)
+    if (e.altKey && !e.shiftKey && !e.ctrlKey && !e.metaKey &&
+        (e.code === 'ArrowUp' || e.code === 'ArrowDown')) {
+        e.preventDefault(); moveLine(e.code === 'ArrowUp' ? -1 : 1); return;
     }
-    if (e.altKey && e.shiftKey && !e.ctrlKey && !e.metaKey && e.code === 'ArrowDown') {
-        e.preventDefault(); moveLine(1); return;
+    // Duplicate line — Shift+Alt+Up / Down (VS Code)
+    if (e.altKey && e.shiftKey && !e.ctrlKey && !e.metaKey &&
+        (e.code === 'ArrowUp' || e.code === 'ArrowDown')) {
+        e.preventDefault(); duplicateLine(e.code === 'ArrowUp' ? -1 : 1); return;
     }
-    if (e.ctrlKey && e.key === 'b') {
+    // Delete line — Ctrl/⌘+Shift+K (VS Code)
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && !e.altKey && e.code === 'KeyK') {
+        e.preventDefault(); deleteLine(); return;
+    }
+    // Insert line below / above — Ctrl/⌘+Enter / Ctrl/⌘+Shift+Enter (VS Code)
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key === 'Enter' && !e.isComposing) {
+        e.preventDefault(); insertLine(e.shiftKey); return;
+    }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
         e.preventDefault();
         applyToolbarAction(toolbarActions.bold);
-    } else if (e.ctrlKey && e.key === 'i') {
+    } else if ((e.ctrlKey || e.metaKey) && e.key === 'i') {
         e.preventDefault();
         applyToolbarAction(toolbarActions.italic);
-    } else if (e.ctrlKey && e.key === 's') {
+    } else if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
         saveMdButton.click();
     }
 });
 
+// --- Find & replace (Ctrl+F / Ctrl+H, Mac ⌘F / ⌥⌘F) ---
+// Plain-text, case-insensitive search over the editor. A textarea can't
+// highlight every match, so we select + scroll to the current one and show a
+// "3/14" counter — VS Code-style navigation with Enter / Shift+Enter.
+let findMatches = [];
+
+const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+function refreshFindMatches() {
+    const term = findInput.value;
+    findMatches = [];
+    if (!term) { findCount.textContent = ''; return; }
+    const hay = markdownInput.value.toLowerCase();
+    const needle = term.toLowerCase();
+    let i = 0;
+    while ((i = hay.indexOf(needle, i)) !== -1) {
+        findMatches.push(i);
+        i += needle.length || 1;
+    }
+    if (!findMatches.length) findCount.textContent = '0/0';
+}
+
+function scrollEditorToSelection() {
+    const ta = markdownInput;
+    const lh = parseFloat(getComputedStyle(ta).lineHeight) || 24;
+    const lineIdx = (ta.value.slice(0, ta.selectionStart).match(/\n/g) || []).length;
+    ta.scrollTop = Math.max(0, lineIdx * lh - ta.clientHeight / 2);
+}
+
+function gotoFindMatch(dir) {
+    refreshFindMatches();
+    const n = findMatches.length;
+    if (!n) return;
+    const term = findInput.value;
+    let idx;
+    if (dir >= 0) {
+        idx = findMatches.findIndex(p => p >= markdownInput.selectionEnd);
+        if (idx === -1) idx = 0;                              // wrap to top
+    } else {
+        idx = -1;
+        for (let k = n - 1; k >= 0; k--) {
+            if (findMatches[k] < markdownInput.selectionStart) { idx = k; break; }
+        }
+        if (idx === -1) idx = n - 1;                          // wrap to bottom
+    }
+    const pos = findMatches[idx];
+    markdownInput.setSelectionRange(pos, pos + term.length);
+    scrollEditorToSelection();
+    findCount.textContent = `${idx + 1}/${n}`;
+}
+
+function openFindBar(withReplace) {
+    findBar.classList.add('open');
+    replaceRow.style.display = withReplace ? 'flex' : 'none';
+    const sel = markdownInput.value.slice(markdownInput.selectionStart, markdownInput.selectionEnd);
+    if (sel && !sel.includes('\n')) findInput.value = sel;
+    findInput.focus();
+    findInput.select();
+    // Collapse the editor selection to its start so the search lands on the
+    // occurrence the caret is on, not the one after it.
+    markdownInput.setSelectionRange(markdownInput.selectionStart, markdownInput.selectionStart);
+    gotoFindMatch(1);
+}
+
+function closeFindBar() {
+    findBar.classList.remove('open');
+    markdownInput.focus();
+}
+
+function replaceCurrent() {
+    const term = findInput.value;
+    if (!term) return;
+    const s = markdownInput.selectionStart, e = markdownInput.selectionEnd;
+    if (markdownInput.value.slice(s, e).toLowerCase() === term.toLowerCase()) {
+        markdownInput.setRangeText(replaceInput.value, s, e, 'end');
+        markdownInput.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    gotoFindMatch(1);
+}
+
+function replaceAllMatches() {
+    const term = findInput.value;
+    if (!term) return;
+    refreshFindMatches();
+    const n = findMatches.length;
+    if (!n) return;
+    const re = new RegExp(escapeRegExp(term), 'gi');
+    const rep = replaceInput.value.replace(/\$/g, '$$$$');
+    const nv = markdownInput.value.replace(re, rep);
+    markdownInput.setRangeText(nv, 0, markdownInput.value.length, 'start');
+    markdownInput.dispatchEvent(new Event('input', { bubbles: true }));
+    findCount.textContent = `replaced ${n}`;
+}
+
+findInput.addEventListener('input', () => {
+    // Stay on the match under the caret while the term is being typed.
+    markdownInput.setSelectionRange(markdownInput.selectionStart, markdownInput.selectionStart);
+    gotoFindMatch(1);
+});
+document.getElementById('find-next').addEventListener('click', () => gotoFindMatch(1));
+document.getElementById('find-prev').addEventListener('click', () => gotoFindMatch(-1));
+document.getElementById('find-close').addEventListener('click', closeFindBar);
+document.getElementById('replace-one').addEventListener('click', replaceCurrent);
+document.getElementById('replace-all').addEventListener('click', replaceAllMatches);
+
+findInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); gotoFindMatch(e.shiftKey ? -1 : 1); }
+    else if (e.key === 'Escape') { e.preventDefault(); closeFindBar(); }
+});
+replaceInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); replaceCurrent(); }
+    else if (e.key === 'Escape') { e.preventDefault(); closeFindBar(); }
+});
+
+// --- Keyboard shortcuts dialog (Ctrl+K) — Teams-style ---
+const IS_MAC = /Mac|iPhone|iPad/.test(navigator.platform);
+const K_MOD = IS_MAC ? '⌘' : 'Ctrl';
+const K_ALT = IS_MAC ? '⌥' : 'Alt';
+const K_SHIFT = IS_MAC ? '⇧' : 'Shift';
+
+function renderShortcutsDialog() {
+    const sections = [
+        { title: 'General', items: [
+            ['Save', [K_MOD, 'S']],
+            ['Copy as rich text', [K_MOD, K_SHIFT, 'C']],
+            ['Clear editor', [K_MOD, K_SHIFT, 'X']],
+            ['Clear & paste', [K_MOD, K_SHIFT, 'V']],
+            ['Find', [K_MOD, 'F']],
+            ['Replace', IS_MAC ? [K_ALT, K_MOD, 'F'] : [K_MOD, 'H']],
+            ['Keyboard shortcuts', [K_MOD, 'K']],
+        ]},
+        { title: 'Lines', items: [
+            ['Move line up / down', [K_ALT, '↑ / ↓']],
+            ['Duplicate line up / down', [K_SHIFT, K_ALT, '↑ / ↓']],
+            ['Delete line', [K_MOD, K_SHIFT, 'K']],
+            ['Insert line below', [K_MOD, 'Enter']],
+            ['Insert line above', [K_MOD, K_SHIFT, 'Enter']],
+            ['Indent / outdent', ['Tab', K_SHIFT + '+Tab']],
+        ]},
+        { title: 'Formatting', items: [
+            ['Bold', [K_MOD, 'B']],
+            ['Italic', [K_MOD, 'I']],
+            ['Heading 1–5', [K_MOD, K_ALT, '1–5']],
+            ['Bullet list', [K_MOD, '.']],
+            ['Numbered list', [K_MOD, '/']],
+            ['Checkbox', [K_MOD, K_ALT, 'C']],
+            ['Star line', [K_MOD, K_ALT, 'S']],
+        ]},
+        { title: 'View', items: [
+            ['Editor / Split / Preview', [K_ALT, '1 / 2 / 3']],
+            ['Word wrap', [K_ALT, 'Z']],
+        ]},
+    ];
+    shortcutsBody.innerHTML = sections.map(sec => `
+        <div class="shortcuts-section">
+            <h3>${sec.title}</h3>
+            ${sec.items.map(([label, keys]) => `
+                <div class="shortcut-row">
+                    <span>${label}</span>
+                    <span class="shortcut-keys">${keys.map(k => `<kbd>${k}</kbd>`).join('')}</span>
+                </div>`).join('')}
+        </div>`).join('');
+}
+
+function toggleShortcutsDialog(show) {
+    const open = show ?? !shortcutsOverlay.classList.contains('open');
+    if (open && !shortcutsBody.childElementCount) renderShortcutsDialog();
+    shortcutsOverlay.classList.toggle('open', open);
+}
+
+document.getElementById('shortcuts-btn').addEventListener('click', () => toggleShortcutsDialog(true));
+document.getElementById('shortcuts-close').addEventListener('click', () => toggleShortcutsDialog(false));
+shortcutsOverlay.addEventListener('click', (e) => {
+    if (e.target === shortcutsOverlay) toggleShortcutsDialog(false);
+});
+
 // --- Global shortcuts (work regardless of focus) ---
 // Use e.code (physical key) so Alt/Option combos are unaffected by Mac dead keys.
 document.addEventListener('keydown', (e) => {
+    // Find — Ctrl/⌘+F; Replace — Ctrl+H (Win) / ⌥⌘F (Mac)
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.code === 'KeyF') {
+        e.preventDefault(); openFindBar(replaceRow.style.display === 'flex'); return;
+    }
+    if (e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey && e.code === 'KeyH') {
+        e.preventDefault(); openFindBar(true); return;
+    }
+    if (e.metaKey && e.altKey && !e.shiftKey && e.code === 'KeyF') {
+        e.preventDefault(); openFindBar(true); return;
+    }
+    // Keyboard shortcuts dialog — Ctrl/⌘+K
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.code === 'KeyK') {
+        e.preventDefault(); toggleShortcutsDialog(); return;
+    }
+    if (e.key === 'Escape') {
+        if (shortcutsOverlay.classList.contains('open')) { toggleShortcutsDialog(false); return; }
+        if (findBar.classList.contains('open')) { closeFindBar(); return; }
+    }
     // Copy as rich text — Ctrl/⌘ + Shift + C
     if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.code === 'KeyC') {
         e.preventDefault();
