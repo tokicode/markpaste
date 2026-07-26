@@ -431,6 +431,14 @@ async function captureLongImage() {
         // Let the browser reflow (and settle fonts) before measuring/painting.
         await new Promise(requestAnimationFrame);
 
+        // Safety net: if something still refuses to fit the phone width (a wide
+        // image, an unbreakable code line), widen the capture rather than let
+        // html2canvas clip the right edge.
+        if (renderedOutput.scrollWidth > target.width + 1) {
+            renderedOutput.style.width = renderedOutput.scrollWidth + 'px';
+            await new Promise(requestAnimationFrame);
+        }
+
         // Canvas height is capped (~32k px); drop the scale for very long docs.
         let scale = target.scale;
         const contentHeight = renderedOutput.scrollHeight;

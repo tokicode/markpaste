@@ -1287,6 +1287,21 @@ body.snapshot-mode #rendered-output pre {
     overflow: visible;
 }
 
+/* Tables: a wide table would otherwise push past the phone width and get
+   clipped at the right edge. Let cells wrap so every column fits, with a
+   floor so no column collapses to a single character. */
+body.snapshot-mode #rendered-output table {
+    width: 100%;
+    font-size: 0.82em;
+}
+
+body.snapshot-mode #rendered-output th,
+body.snapshot-mode #rendered-output td {
+    overflow-wrap: break-word;
+    padding: 0.4em 0.45em;
+    min-width: 3.6em;
+}
+
 .snapshot-watermark {
     margin-top: 1.6em;
     padding-top: 0.7em;
