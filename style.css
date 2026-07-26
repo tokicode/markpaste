@@ -73,6 +73,9 @@ body {
     background-color: var(--bg);
     color: var(--text-primary);
     height: 100vh;
+    /* Dynamic viewport height: on mobile the address bar would otherwise push
+       the footer below the fold. Older browsers keep the 100vh above. */
+    height: 100dvh;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -1327,4 +1330,151 @@ body.snapshot-mode #rendered-output td {
     font-family: var(--font-ui);
     font-size: 0.95rem;
     letter-spacing: 0.04em;
+}
+
+/* =============================================================
+   MOBILE ADAPTATION (≤768px)
+   The desktop UI packs 15 header controls, a 16-button toolbar and a
+   side-by-side split view — all unusable at phone width. On a phone the
+   app is reduced to its core path: paste → read → Copy / Snap.
+   Everything below is scoped to the breakpoint, so the desktop layout
+   is untouched.
+   ============================================================= */
+
+/* The overflow menu holding the controls hidden on phones. Desktop never
+   shows it (the real buttons are all visible there). */
+.more-menu { position: relative; display: none; }
+
+.more-trigger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 40px;
+    height: 34px;
+    font-size: 1.15rem;
+    line-height: 1;
+    color: var(--text-secondary);
+    background: var(--surface-raised);
+    border: 1px solid var(--border-solid);
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: all var(--transition);
+}
+
+.more-trigger:hover { color: var(--text-primary); border-color: var(--border-bright); }
+
+.more-dropdown {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    min-width: 172px;
+    background: var(--surface-raised);
+    border: 1px solid var(--border-solid);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-lg);
+    padding: 4px;
+    z-index: 60;
+    animation: slideDown 0.14s ease both;
+}
+
+.more-dropdown[hidden] { display: none; }
+
+.more-option {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 0.6rem 0.7rem;
+    font-family: var(--font-ui);
+    font-size: 0.86rem;
+    color: var(--text-secondary);
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.more-option:active { background: var(--surface-hover); color: var(--text-primary); }
+
+.more-sep {
+    height: 1px;
+    background: var(--border-solid);
+    margin: 4px 2px;
+}
+
+@media (max-width: 768px) {
+    /* --- Header: brand + view toggle + the three core actions + ⋯ --- */
+    .app-header {
+        padding: 0 0.6rem;
+        gap: 0.4rem;
+        height: auto;
+        min-height: 50px;
+        flex-wrap: wrap;
+    }
+
+    .header-brand { gap: 0.35rem; }
+    #app-title { font-size: 1rem; max-width: 38vw; }
+
+    .center-controls { gap: 0.35rem; }
+
+    /* No split view on a phone: two 157px columns are unreadable. */
+    #view-split { display: none; }
+    .resizer { display: none; }
+    .editor-container.mode-preview #editor-panel,
+    .editor-container.mode-editor #preview-panel { display: none; }
+
+    .view-btn { width: 38px; height: 32px; }
+
+    .file-controls { gap: 0.3rem; }
+
+    /* Appearance is fixed on mobile (light + Aurum), so these go away.
+       The rest move into the ⋯ menu — hidden, not removed, because the
+       menu items click these very buttons. */
+    .style-menu,
+    #theme-toggle,
+    #shortcuts-btn,
+    #wrap-toggle,
+    #refresh-file,
+    #save-md,
+    #save-as-md,
+    #clear-editor,
+    #save-html,
+    #save-word,
+    #save-pdf,
+    .file-controls > label[for="file-input"],
+    .file-controls .divider-v { display: none; }
+
+    .more-menu { display: block; }
+
+    /* Core actions stay reachable, with touch-sized targets */
+    #copy-clipboard,
+    #save-image,
+    #paste-clipboard {
+        height: 34px;
+        padding: 0 0.7rem;
+        font-size: 0.8rem;
+    }
+
+    /* Formatting toolbar is hidden entirely on phones */
+    .toolbar { display: none; }
+
+    /* --- Panels --- */
+    .editor-container { padding: 0.5rem; gap: 0; }
+    .panel-wrapper { flex: 1; }
+    .panel-label { display: none; }
+
+    /* 16px keeps iOS Safari from zooming in when the field is focused */
+    #markdown-input {
+        font-size: 16px;
+        line-height: 1.6;
+        padding: 0.9rem;
+    }
+
+    #rendered-output {
+        font-size: 1rem;
+        line-height: 1.7;
+        padding: 0.9rem 1rem 1.5rem;
+    }
+
+    /* Find bar is keyboard-driven; nothing opens it on a phone */
+    #find-bar { display: none; }
 }

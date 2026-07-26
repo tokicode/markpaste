@@ -46,6 +46,23 @@ md.inline.ruler.before('text', 'safe_br', (state, silent) => {
 let currentFile = null;
 let isDirty = false;
 
+// --- Mobile adaptation (≤768px) ---------------------------------------------
+// At phone width the app is reduced to its core path: paste → read → Copy/Snap.
+// The layout work lives in the CSS breakpoint; these helpers drive the
+// behaviour CSS can't express (fixed appearance, default view, no split mode).
+// Queried live rather than captured once, so it is never read before layout
+// has settled.
+const isMobile = () => window.matchMedia('(max-width: 768px)').matches;
+
+// Appearance is fixed on phones: light + Aurum. Applied directly instead of via
+// applyStyle()/toggleTheme() so a desktop preference stored in the same browser
+// profile is never overwritten.
+function applyMobileAppearance() {
+    if (!isMobile()) return;
+    document.body.classList.add('light-mode');
+    document.body.dataset.style = 'editorial';
+}
+
 // Backend detection: true when the local server.js is running (Local mode),
 // false on the hosted static site (Web mode). Set by initBackendMode() at startup.
 let HAS_BACKEND = false;
@@ -704,6 +721,15 @@ async function loadFromUrl() {
 
     // After any file load attempt: if still empty, recover the last draft.
     restoreDraftIfEmpty();
+
+    // Phones get one pane, chosen by what the visitor most likely wants next:
+    // an empty document means they came to paste something, anything else means
+    // they came to read or share it. Re-assert the appearance here too — by now
+    // layout has settled, so the breakpoint is known for certain.
+    if (isMobile()) {
+        applyMobileAppearance();
+        setViewMode(markdownInput.value.trim() === '' ? 'editor' : 'preview', false);
+    }
 })();
 
 // --- View mode toggle (editor / split / preview) ---
@@ -713,7 +739,9 @@ const viewBtns = {
     preview: document.getElementById('view-preview'),
 };
 
-function setViewMode(mode) {
+// persist=false for the phone's automatic choice, so it never overwrites the
+// split/editor/preview preference the same profile uses on a desktop.
+function setViewMode(mode, persist = true) {
     editorContainer.classList.remove('mode-editor', 'mode-preview');
     if (mode === 'editor')  editorContainer.classList.add('mode-editor');
     if (mode === 'preview') editorContainer.classList.add('mode-preview');
@@ -721,7 +749,9 @@ function setViewMode(mode) {
     Object.entries(viewBtns).forEach(([key, btn]) => {
         btn.classList.toggle('active', key === mode);
     });
-    try { localStorage.setItem('view', mode); } catch { /* ignore */ }
+    if (persist) {
+        try { localStorage.setItem('view', mode); } catch { /* ignore */ }
+    }
 }
 
 viewBtns.editor.addEventListener('click',  () => setViewMode('editor'));
@@ -729,8 +759,10 @@ viewBtns.split.addEventListener('click',   () => setViewMode('split'));
 viewBtns.preview.addEventListener('click', () => setViewMode('preview'));
 
 // Restore last-used view mode
+// A desktop preference (often "split") makes no sense on a phone, where the
+// view is chosen by initBackendMode() from whether there's content to show.
 const savedView = localStorage.getItem('view');
-if (savedView && viewBtns[savedView]) setViewMode(savedView);
+if (!isMobile() && savedView && viewBtns[savedView]) setViewMode(savedView);
 
 // --- Output style selector (Editorial / Business / Academic) ---
 const styleMenu = document.querySelector('.style-menu');
@@ -763,6 +795,29 @@ document.addEventListener('click', (e) => { if (!styleMenu.contains(e.target)) t
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') toggleStyleMenu(false); });
 
 applyStyle(localStorage.getItem('style') || 'editorial');
+applyMobileAppearance();   // early, so a phone never flashes the dark theme
+
+// The ⋯ menu holds the controls hidden at phone width. Each item just clicks
+// the real button (still in the DOM), so no export logic is duplicated.
+const moreMenu = document.querySelector('.more-menu');
+const moreTrigger = document.getElementById('more-trigger');
+const moreDropdown = document.getElementById('more-dropdown');
+
+function toggleMoreMenu(open) {
+    const willOpen = open ?? moreDropdown.hasAttribute('hidden');
+    moreDropdown.toggleAttribute('hidden', !willOpen);
+    moreTrigger.setAttribute('aria-expanded', String(willOpen));
+}
+
+if (moreTrigger) {
+    moreTrigger.addEventListener('click', (e) => { e.stopPropagation(); toggleMoreMenu(); });
+    document.querySelectorAll('.more-option').forEach(o => o.addEventListener('click', () => {
+        toggleMoreMenu(false);
+        document.getElementById(o.dataset.target)?.click();
+    }));
+    document.addEventListener('click', (e) => { if (!moreMenu.contains(e.target)) toggleMoreMenu(false); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') toggleMoreMenu(false); });
+}
 
 // --- Refresh (reload current file from disk) ---
 refreshButton.addEventListener('click', async () => {
