@@ -28,6 +28,21 @@ if (window.markdownitFootnote) md.use(window.markdownitFootnote);
 // GitHub-style task lists: "- [ ] todo" / "- [x] done" render as checkboxes.
 if (window.markdownitTaskLists) md.use(window.markdownitTaskLists);
 
+// Allow a literal <br> as a line break — the usual way to break a line inside a
+// table cell, where Markdown offers no syntax for it. Raw HTML stays disabled
+// (markdown-it's html:false default), so every other tag is still escaped to
+// text: pasting <script> or <img onerror=…> can never execute. This is an
+// inline rule rather than a post-render string replacement, so a <br> written
+// inside a code block or `inline code` is still shown verbatim.
+md.inline.ruler.before('text', 'safe_br', (state, silent) => {
+    if (state.src.charCodeAt(state.pos) !== 0x3C /* < */) return false;
+    const match = /^<br\s*\/?>/i.exec(state.src.slice(state.pos, state.pos + 8));
+    if (!match) return false;
+    if (!silent) state.push('hardbreak', 'br', 0);
+    state.pos += match[0].length;
+    return true;
+});
+
 let currentFile = null;
 let isDirty = false;
 
