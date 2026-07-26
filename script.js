@@ -486,7 +486,10 @@ async function captureLongImage() {
     }
 }
 
-saveImageButton.addEventListener('click', captureLongImage);
+// Optional-chained: during a deploy, a cached older index.html can be paired
+// with this newer script. A missing button must not throw here, or every
+// feature defined below (find, shortcuts, view modes…) would stop loading.
+saveImageButton?.addEventListener('click', captureLongImage);
 
 // Copy the rendered preview as rich text (text/html + text/plain) — the
 // signature feature. Reused by the Copy button and the Ctrl/⌘+Shift+C shortcut.
