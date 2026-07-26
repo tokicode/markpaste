@@ -1251,3 +1251,65 @@ body[data-style="academic"] #rendered-output h1::after { display: none; }
 
     @page { margin: 16mm; }
 }
+
+/* =============================================================
+   SNAPSHOT MODE — mobile-ready long image capture ("Snap")
+   Temporarily applied to <body> while html2canvas captures the
+   real #rendered-output (styles stay anchored to its id). Width
+   is set inline by script.js from the detected target device.
+   ============================================================= */
+body.snapshot-mode #rendered-output {
+    position: fixed;
+    left: 0;
+    top: 0;
+    height: auto;
+    max-height: none;
+    min-height: 0;
+    overflow: visible;
+    border: none;
+    border-radius: 0;
+    /* Mobile reading typography: bigger base, roomier lines */
+    font-size: 17px;
+    line-height: 1.75;
+    padding: 22px 20px 14px;
+    z-index: 1;
+}
+
+/* Slightly tighter headings at phone width */
+body.snapshot-mode #rendered-output h1 { font-size: 1.65em; }
+body.snapshot-mode #rendered-output h2 { font-size: 1.35em; }
+body.snapshot-mode #rendered-output h3 { font-size: 1.15em; }
+
+/* Code blocks: wrap instead of horizontal scroll (no scrolling in a PNG) */
+body.snapshot-mode #rendered-output pre {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    overflow: visible;
+}
+
+.snapshot-watermark {
+    margin-top: 1.6em;
+    padding-top: 0.7em;
+    border-top: 1px solid var(--border-solid);
+    text-align: center;
+    font-family: var(--font-ui);
+    font-size: 0.68em;
+    letter-spacing: 0.12em;
+    color: var(--text-muted-s);
+    opacity: 0.75;
+}
+
+/* Opaque overlay that hides the capture-time reflow */
+.snapshot-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg);
+    color: var(--text-secondary);
+    font-family: var(--font-ui);
+    font-size: 0.95rem;
+    letter-spacing: 0.04em;
+}

@@ -7,6 +7,7 @@ const saveAsMdButton = document.getElementById('save-as-md');
 const saveHtmlButton = document.getElementById('save-html');
 const savePdfButton = document.getElementById('save-pdf');
 const saveWordButton = document.getElementById('save-word');
+const saveImageButton = document.getElementById('save-image');
 const copyClipboardButton = document.getElementById('copy-clipboard');
 const themeToggle = document.getElementById('theme-toggle');
 const refreshButton = document.getElementById('refresh-file');
@@ -382,6 +383,102 @@ saveWordButton.addEventListener('click', () => {
     a.download = exportBaseName() + '.doc';
     a.click();
 });
+
+// --- Snap: mobile-ready long image ------------------------------------------
+// Renders the preview as a phone-width PNG and copies it to the clipboard
+// (Universal Clipboard pastes it straight on an iPhone). Falls back to a
+// .png download when the clipboard can't take images.
+
+// Pick the capture size. On a phone, use the visitor's own screen; on desktop,
+// default to the iPhone 13 mini preset (375pt logical @3x → 1125px wide).
+function snapshotTarget() {
+    const isMobile = window.matchMedia('(pointer: coarse)').matches
+        && Math.min(window.innerWidth, window.innerHeight) < 768;
+    if (isMobile) {
+        return {
+            width: Math.min(screen.width, 480),
+            scale: Math.min(window.devicePixelRatio || 2, 3)
+        };
+    }
+    return { width: 375, scale: 3 };
+}
+
+async function captureLongImage() {
+    if (!window.html2canvas) {
+        alert('Image library failed to load (html2canvas CDN). Check your connection and reload.');
+        return;
+    }
+    const target = snapshotTarget();
+
+    // Opaque overlay hides the capture-time reflow of the real preview node.
+    const overlay = document.createElement('div');
+    overlay.className = 'snapshot-overlay';
+    overlay.textContent = '📸 Generating long image…';
+    document.body.appendChild(overlay);
+
+    // Snapshot state we must restore afterwards.
+    const wasLight = document.body.classList.contains('light-mode');
+    const prevScroll = renderedOutput.scrollTop;
+    const watermark = document.createElement('div');
+    watermark.className = 'snapshot-watermark';
+    watermark.textContent = '◈ markpaste.com';
+
+    try {
+        document.body.classList.add('light-mode', 'snapshot-mode');
+        renderedOutput.style.width = target.width + 'px';
+        renderedOutput.appendChild(watermark);
+
+        // Let the browser reflow (and settle fonts) before measuring/painting.
+        await new Promise(requestAnimationFrame);
+
+        // Canvas height is capped (~32k px); drop the scale for very long docs.
+        let scale = target.scale;
+        const contentHeight = renderedOutput.scrollHeight;
+        if (contentHeight * scale > 32000) {
+            scale = Math.max(1, Math.floor(32000 / contentHeight));
+        }
+
+        const canvas = await html2canvas(renderedOutput, {
+            scale,
+            useCORS: true,
+            backgroundColor: null,
+            logging: false
+        });
+
+        const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+        if (!blob) throw new Error('Canvas produced no image (document may be too long)');
+
+        let copied = false;
+        if (navigator.clipboard && window.ClipboardItem) {
+            try {
+                await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+                copied = true;
+            } catch { /* fall through to download */ }
+        }
+        if (!copied) {
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = exportBaseName() + '.png';
+            a.click();
+            URL.revokeObjectURL(a.href);
+        }
+
+        const orig = saveImageButton.textContent;
+        saveImageButton.textContent = copied ? 'Copied!' : 'Saved!';
+        setTimeout(() => { saveImageButton.textContent = orig; }, 1500);
+    } catch (error) {
+        alert('Failed to generate image: ' + error.message);
+    } finally {
+        watermark.remove();
+        renderedOutput.style.width = '';
+        document.body.classList.remove('snapshot-mode');
+        if (!wasLight) document.body.classList.remove('light-mode');
+        renderedOutput.scrollTop = prevScroll;
+        overlay.remove();
+    }
+}
+
+saveImageButton.addEventListener('click', captureLongImage);
 
 // Copy the rendered preview as rich text (text/html + text/plain) — the
 // signature feature. Reused by the Copy button and the Ctrl/⌘+Shift+C shortcut.
