@@ -46,6 +46,11 @@ md.inline.ruler.before('text', 'safe_br', (state, silent) => {
 let currentFile = null;
 let isDirty = false;
 
+// Set when the document came from a URL rather than a local file. Deliberately
+// separate from currentFile: in Local mode currentFile is a disk path that Save
+// writes to, and a URL must never end up being written to disk.
+let sourceUrl = null;
+
 // --- Mobile adaptation (≤768px) ---------------------------------------------
 // At phone width the app is reduced to its core path: paste → read → Copy/Snap.
 // The layout work lives in the CSS breakpoint; these helpers drive the
@@ -121,10 +126,25 @@ function markSaved() {
 }
 
 // --- Title update ---
+// Last path segment of a URL, e.g. ".../main/README.md" → "README.md".
+function urlFileName(url) {
+    try {
+        const name = decodeURIComponent(new URL(url).pathname).split('/').filter(Boolean).pop();
+        return name || '';
+    } catch {
+        return '';
+    }
+}
+
 function updateTitle(filePath) {
     currentFile = filePath;
-    appTitle.textContent = filePath ? filePath.split(/[\\/]/).pop() : 'MarkPaste';
-    document.title = filePath ? `${filePath.split(/[\\/]/).pop()} — MarkPaste` : 'MarkPaste';
+    // A document loaded from a URL has no local path, so fall back to the file
+    // name in the URL; the full address goes in the tooltip so the source of
+    // the content is always checkable.
+    const name = filePath ? filePath.split(/[\\/]/).pop() : (sourceUrl ? urlFileName(sourceUrl) : '');
+    appTitle.textContent = name || 'MarkPaste';
+    appTitle.title = sourceUrl || filePath || '';
+    document.title = name ? `${name} — MarkPaste` : 'MarkPaste';
 }
 
 // --- File loading ---
@@ -191,6 +211,7 @@ function writeDraftNow() {
         localStorage.setItem(DRAFT_KEY, JSON.stringify({
             content: markdownInput.value,
             currentFile,
+            sourceUrl,
             updatedAt: Date.now()
         }));
     } catch { /* storage full / unavailable — ignore */ }
@@ -232,7 +253,11 @@ function restoreDraftIfEmpty() {
     if (!draft || !draft.content) return;
     markdownInput.value = draft.content;
     renderMarkdown();
-    if (draft.currentFile) updateTitle(draft.currentFile);
+    // Restore the URL identity too, so the title and Refresh keep working after
+    // a reload of a document that was loaded from a link.
+    sourceUrl = draft.sourceUrl || null;
+    if (draft.currentFile || sourceUrl) updateTitle(draft.currentFile || null);
+    updateRefreshVisibility();
     showDraftRestoredHint();
 }
 
@@ -268,6 +293,10 @@ function exportBaseName() {
             currentFile.split(/[\\/]/).pop().replace(/\.(md|markdown)$/i, '')
         );
         if (fromFile) return fromFile;
+    }
+    if (sourceUrl) {
+        const fromUrl = sanitizeFileName(urlFileName(sourceUrl).replace(/\.(md|markdown)$/i, ''));
+        if (fromUrl) return fromUrl;
     }
     const heading = renderedOutput.querySelector('h1, h2, h3');
     const fromHeading = heading ? sanitizeFileName(heading.textContent) : '';
@@ -321,39 +350,158 @@ saveAsMdButton.addEventListener('click', async () => {
     }
 });
 
-// --- New / Clear & paste (quickly start a fresh document) ---
+// --- Loading Markdown from a URL -------------------------------------------
+// There is no backend to proxy through, so this is subject to CORS: GitHub raw
+// and gists send Access-Control-Allow-Origin, most other hosts do not. Every
+// failure is therefore treated as "not a Markdown URL" and falls back silently.
+
+const FETCH_TIMEOUT_MS = 3000;
+const FETCH_MAX_BYTES = 2 * 1024 * 1024;
+
+// The URL you copy from GitHub's address bar points at the HTML page, not the
+// file. Rewrite those to their raw equivalent so the common case just works.
+function toRawUrl(url) {
+    try {
+        const u = new URL(url);
+        if (u.hostname === 'github.com') {
+            // /owner/repo/blob/ref/path → raw.githubusercontent.com/owner/repo/ref/path
+            const m = u.pathname.match(/^\/([^/]+)\/([^/]+)\/(?:blob|raw)\/(.+)$/);
+            if (m) return `https://raw.githubusercontent.com/${m[1]}/${m[2]}/${m[3]}`;
+        }
+        if (u.hostname === 'gist.github.com') {
+            return `https://gist.githubusercontent.com${u.pathname}/raw`;
+        }
+    } catch { /* not a parsable URL — caller handles it */ }
+    return url;
+}
+
+// True only when the text is nothing but a single http(s) URL. Anything else is
+// ordinary content: pasting a bare URL as an entire document is never the
+// intent, and Ctrl+V in the editor still inserts URLs as text as usual.
+function isBareHttpUrl(text) {
+    if (/\s/.test(text)) return false;
+    try {
+        const u = new URL(text);
+        return u.protocol === 'http:' || u.protocol === 'https:';
+    } catch {
+        return false;
+    }
+}
+
+// Fetch Markdown, or throw. Rejects anything that isn't plain text so a fetched
+// web page never lands in the editor as a screenful of escaped HTML tags.
+async function fetchMarkdownFromUrl(url) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+    try {
+        const response = await fetch(toRawUrl(url), {
+            signal: controller.signal,
+            redirect: 'follow',
+            credentials: 'omit'
+        });
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+
+        const type = (response.headers.get('content-type') || '').toLowerCase();
+        if (type && !/^text\/(plain|markdown|x-markdown)/.test(type)) {
+            throw new Error('not Markdown (' + type.split(';')[0] + ')');
+        }
+        const size = Number(response.headers.get('content-length') || 0);
+        if (size > FETCH_MAX_BYTES) throw new Error('file too large');
+
+        const text = await response.text();
+        if (text.length > FETCH_MAX_BYTES) throw new Error('file too large');
+        return text;
+    } finally {
+        clearTimeout(timer);
+    }
+}
+
+// Put fetched Markdown into the editor. currentFile stays null on purpose so
+// Save can never try to write back to the URL.
+function applyFetchedMarkdown(text, url) {
+    markdownInput.value = text;
+    currentFile = null;
+    sourceUrl = url;
+    updateTitle(null);
+    renderMarkdown();
+    isDirty = false;
+    saveDraft();
+    updateRefreshVisibility();
+    try {
+        saveStatus.textContent = '↓ loaded from ' + new URL(url).hostname;
+        saveStatus.className = 'status-indicator saved';
+        setTimeout(() => {
+            if (!isDirty) {
+                saveStatus.textContent = '';
+                saveStatus.className = 'status-indicator';
+            }
+        }, 2600);
+    } catch { /* ignore */ }
+}
+
+// --- New / Paste (quickly start or replace the document) ---
+// Both replace everything, so check before throwing away unsaved edits.
+function confirmDiscard() {
+    return !isDirty || confirm('You have unsaved changes. Replace the current document?');
+}
+
 // Clear the editor to a blank, untitled document.
 function clearEditor() {
+    if (!confirmDiscard()) return;
     markdownInput.value = '';
+    currentFile = null;
+    sourceUrl = null;
     updateTitle(null);          // untitled → exports fall back to heading/generic name
     renderMarkdown();
     isDirty = false;
     saveStatus.textContent = '';
     saveStatus.className = 'status-indicator';
     saveDraft();
+    updateRefreshVisibility();
     markdownInput.focus();
 }
 
-// Replace the whole document with the clipboard contents (clear + paste).
+// Replace the whole document with the clipboard contents. If the clipboard is
+// nothing but a link, fetch it and load the Markdown it points at instead —
+// failures fall back to pasting the URL as plain text.
 async function clearAndPasteFromClipboard() {
+    if (!confirmDiscard()) return;
+    let text;
     try {
-        const text = await navigator.clipboard.readText();
-        markdownInput.value = text;
-        updateTitle(null);
-        renderMarkdown();
-        if (text.trim()) {
-            markDirty();
-        } else {
-            isDirty = false;
-            saveStatus.textContent = '';
-            saveStatus.className = 'status-indicator';
-        }
-        saveDraft();
-        markdownInput.focus();
+        text = await navigator.clipboard.readText();
     } catch (err) {
         alert('Could not read the clipboard (' + err.message +
               ').\nAllow clipboard access, or click the editor and press Ctrl+V to paste manually.');
+        return;
     }
+
+    const trimmed = text.trim();
+    if (isBareHttpUrl(trimmed)) {
+        try {
+            const markdown = await fetchMarkdownFromUrl(trimmed);
+            applyFetchedMarkdown(markdown, trimmed);
+            // Make the loaded document shareable and reload-safe.
+            history.replaceState(null, '', '?url=' + encodeURIComponent(trimmed));
+            markdownInput.focus();
+            return;
+        } catch { /* not reachable as Markdown — paste it as text below */ }
+    }
+
+    markdownInput.value = text;
+    currentFile = null;
+    sourceUrl = null;
+    updateTitle(null);
+    renderMarkdown();
+    if (text.trim()) {
+        markDirty();
+    } else {
+        isDirty = false;
+        saveStatus.textContent = '';
+        saveStatus.className = 'status-indicator';
+    }
+    saveDraft();
+    updateRefreshVisibility();
+    markdownInput.focus();
 }
 
 clearButton.addEventListener('click', clearEditor);
@@ -693,6 +841,29 @@ async function loadFromUrl() {
     }
 }
 
+// --- Open Markdown from ?url= (works in both modes) ---
+// Makes a loaded document shareable: send someone markpaste.com/?url=<md> and
+// they get it rendered. Only http(s) is accepted, so javascript:/data: URLs
+// can never be smuggled in through the query string.
+async function loadFromUrlParam() {
+    const raw = new URLSearchParams(window.location.search).get('url');
+    if (!raw || !isBareHttpUrl(raw.trim())) return;
+    try {
+        const markdown = await fetchMarkdownFromUrl(raw.trim());
+        applyFetchedMarkdown(markdown, raw.trim());
+    } catch (error) {
+        alert('Could not load ' + raw + '\n(' + error.message +
+              ')\nThe site may not allow cross-origin requests.');
+    }
+}
+
+// Refresh means "reload from the source". That exists when a backend can re-read
+// the file, or when the document came from a URL. Clearing the inline style
+// rather than setting one lets the mobile stylesheet keep it hidden on phones.
+function updateRefreshVisibility() {
+    refreshButton.style.display = (HAS_BACKEND || sourceUrl) ? '' : 'none';
+}
+
 // --- Backend detection + mode setup ---
 // Probe /api/health: a real backend (server.js) replies with JSON { ok: true }.
 // A static host (e.g. Cloudflare Pages) has no such route and falls back to
@@ -714,12 +885,18 @@ async function loadFromUrl() {
 
     if (HAS_BACKEND) {
         await loadFromUrl();
-    } else {
-        // Disk-only controls have no meaning without a backend.
-        refreshButton.style.display = 'none';
     }
 
-    // After any file load attempt: if still empty, recover the last draft.
+    // ?url= loads Markdown straight from the web. ?file= is Local-mode only and
+    // more explicit, so it wins when both are present. A URL always beats a
+    // stored draft: a shared link must show the document it points at.
+    if (!currentFile) {
+        await loadFromUrlParam();
+    }
+
+    updateRefreshVisibility();
+
+    // If nothing loaded a document, recover the last draft.
     restoreDraftIfEmpty();
 
     // Phones get one pane, chosen by what the visitor most likely wants next:
@@ -819,8 +996,20 @@ if (moreTrigger) {
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') toggleMoreMenu(false); });
 }
 
-// --- Refresh (reload current file from disk) ---
+// --- Refresh (reload the document from wherever it came from) ---
 refreshButton.addEventListener('click', async () => {
+    // Loaded from a link: re-fetch the source. Same meaning as re-reading a
+    // file from disk, so it shares the button.
+    if (sourceUrl) {
+        if (!confirmDiscard()) return;
+        try {
+            const markdown = await fetchMarkdownFromUrl(sourceUrl);
+            applyFetchedMarkdown(markdown, sourceUrl);
+        } catch (error) {
+            alert('Failed to reload from ' + sourceUrl + '\n(' + error.message + ')');
+        }
+        return;
+    }
     if (!currentFile) {
         alert('No file opened yet.');
         return;
@@ -1309,8 +1498,8 @@ function renderShortcutsDialog() {
         { title: 'General', items: [
             ['Save', [K_MOD, 'S']],
             ['Copy as rich text', [K_MOD, K_SHIFT, 'C']],
-            ['Clear editor', [K_MOD, K_SHIFT, 'X']],
-            ['Clear & paste', [K_MOD, K_SHIFT, 'V']],
+            ['New (blank document)', [K_MOD, K_SHIFT, 'X']],
+            ['Paste (replace document)', [K_MOD, K_SHIFT, 'V']],
             ['Find', [K_MOD, 'F']],
             ['Replace', IS_MAC ? [K_ALT, K_MOD, 'F'] : [K_MOD, 'H']],
             ['Copy matching lines (in Find)', [K_ALT, 'Enter']],
