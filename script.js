@@ -763,6 +763,45 @@ const toolbarActions = {
     }
 };
 
+// --- Code block language picker -------------------------------------------
+// Inserting ```python by hand is the only way to get a block highlighted, so
+// the ``` button offers the languages instead. It reuses applyToolbarAction by
+// building the fence on the fly.
+const langTrigger = document.getElementById('lang-trigger');
+const langDropdown = document.getElementById('lang-dropdown');
+
+function toggleLangMenu(open) {
+    const willOpen = open ?? langDropdown.hasAttribute('hidden');
+    langDropdown.toggleAttribute('hidden', !willOpen);
+    langTrigger.setAttribute('aria-expanded', String(willOpen));
+    if (!willOpen) return;
+    // Fixed position, placed from the trigger: the toolbar scrolls
+    // horizontally and would otherwise clip the menu.
+    const rect = langTrigger.getBoundingClientRect();
+    langDropdown.style.top = (rect.bottom + 4) + 'px';
+    langDropdown.style.left = Math.min(rect.left, window.innerWidth - 170) + 'px';
+}
+
+if (langTrigger) {
+    langTrigger.addEventListener('click', (e) => { e.stopPropagation(); toggleLangMenu(); });
+    langDropdown.addEventListener('click', (e) => {
+        const option = e.target.closest('.lang-option');
+        if (!option) return;
+        const lang = option.dataset.lang;
+        toggleLangMenu(false);
+        applyToolbarAction({
+            prefix: '```' + lang + '\n',
+            suffix: '\n```',
+            placeholder: 'code here',
+            block: true
+        });
+    });
+    document.addEventListener('click', (e) => {
+        if (!langDropdown.contains(e.target) && e.target !== langTrigger) toggleLangMenu(false);
+    });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') toggleLangMenu(false); });
+}
+
 document.querySelector('.toolbar').addEventListener('click', (e) => {
     const button = e.target.closest('button[data-action]');
     if (!button) return;

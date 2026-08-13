@@ -119,7 +119,7 @@
             <button data-action="link" title="Link" class="tool-btn">⌘ Link</button>
             <button data-action="image" title="Image" class="tool-btn">⊞ Img</button>
             <button data-action="code" title="Inline Code" class="tool-btn">`code`</button>
-            <button data-action="codeblock" title="Code Block" class="tool-btn">```</button>
+            <button id="lang-trigger" class="tool-btn" title="Code block — pick a language for syntax highlighting" aria-haspopup="true" aria-expanded="false">```<span class="lang-caret">⌄</span></button>
         </div>
         <span class="toolbar-separator"></span>
         <div class="toolbar-group">
@@ -177,6 +177,25 @@
             </a>
         </nav>
     </footer>
+
+    <!-- Sits at body level, not in the toolbar: the toolbar scrolls horizontally
+         and its entrance animation leaves a transform behind, which would both
+         clip this menu and trap its fixed positioning. -->
+    <div class="lang-dropdown" id="lang-dropdown" hidden>
+        <button class="lang-option" data-lang="">Plain</button>
+        <button class="lang-option" data-lang="bash">Bash / Shell</button>
+        <button class="lang-option" data-lang="powershell">PowerShell</button>
+        <button class="lang-option" data-lang="python">Python</button>
+        <button class="lang-option" data-lang="javascript">JavaScript</button>
+        <button class="lang-option" data-lang="typescript">TypeScript</button>
+        <button class="lang-option" data-lang="json">JSON</button>
+        <button class="lang-option" data-lang="yaml">YAML</button>
+        <button class="lang-option" data-lang="sql">SQL</button>
+        <button class="lang-option" data-lang="xml">HTML / XML</button>
+        <button class="lang-option" data-lang="java">Java</button>
+        <button class="lang-option" data-lang="csharp">C#</button>
+        <button class="lang-option" data-lang="dockerfile">Dockerfile</button>
+    </div>
 
     <div class="shortcuts-overlay" id="shortcuts-overlay">
         <div class="shortcuts-dialog" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts">
