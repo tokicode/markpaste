@@ -22,11 +22,33 @@ const replaceRow = document.getElementById('replace-row');
 const replaceInput = document.getElementById('replace-input');
 const shortcutsOverlay = document.getElementById('shortcuts-overlay');
 const shortcutsBody = document.getElementById('shortcuts-body');
-const md = window.markdownit();
+function escapeHtml(s) {
+    return s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
+
+// Colour fenced code blocks. Only when the fence names a language: highlight.js
+// can guess, but it guesses badly on short snippets, and mis-coloured code is
+// worse than plain code. Guarded so a CDN miss just yields plain blocks.
+function highlightCode(str, lang) {
+    if (lang && window.hljs) {
+        try {
+            if (hljs.getLanguage(lang)) {
+                return '<pre class="hljs"><code class="language-' + escapeHtml(lang) + '">' +
+                    hljs.highlight(str, { language: lang, ignoreIllegals: true }).value +
+                    '</code></pre>';
+            }
+        } catch { /* fall through to a plain block */ }
+    }
+    return '<pre class="hljs"><code>' + escapeHtml(str) + '</code></pre>';
+}
+
+const md = window.markdownit({ highlight: highlightCode });
 // Footnote support ([^1] … [^1]: …). Guarded so a CDN miss won't break rendering.
 if (window.markdownitFootnote) md.use(window.markdownitFootnote);
 // GitHub-style task lists: "- [ ] todo" / "- [x] done" render as checkboxes.
 if (window.markdownitTaskLists) md.use(window.markdownitTaskLists);
+// ==highlighted text== → <mark>, the convention Obsidian and many note apps use.
+if (window.markdownitMark) md.use(window.markdownitMark);
 
 // Allow a literal <br> as a line break — the usual way to break a line inside a
 // table cell, where Markdown offers no syntax for it. Raw HTML stays disabled
@@ -158,6 +180,7 @@ function loadFileContent(file) {
         isDirty = false;
         saveStatus.textContent = '';
         saveStatus.className = 'status-indicator';
+        markFileInSync();
     };
     reader.readAsText(file);
 }
@@ -327,6 +350,7 @@ saveMdButton.addEventListener('click', async () => {
     try {
         await saveToServer(currentFile, markdownInput.value);
         markSaved();
+        await markFileInSync();   // our own write must not read as an external change
     } catch (error) {
         alert('Error saving file: ' + error.message);
     }
@@ -345,6 +369,7 @@ saveAsMdButton.addEventListener('click', async () => {
         await saveToServer(filePath, markdownInput.value);
         updateTitle(filePath);
         markSaved();
+        await markFileInSync();
     } catch (error) {
         alert('Error saving file: ' + error.message);
     }
@@ -476,6 +501,7 @@ async function clearAndPasteFromClipboard() {
     }
 
     const trimmed = text.trim();
+    let linkFailure = null;
     if (isBareHttpUrl(trimmed)) {
         try {
             const markdown = await fetchMarkdownFromUrl(trimmed);
@@ -484,7 +510,11 @@ async function clearAndPasteFromClipboard() {
             history.replaceState(null, '', '?url=' + encodeURIComponent(trimmed));
             markdownInput.focus();
             return;
-        } catch { /* not reachable as Markdown — paste it as text below */ }
+        } catch (err) {
+            // Fall through and paste the URL as text, but remember why: pasting
+            // plain text silently is right, silently failing on a link is not.
+            linkFailure = err.name === 'AbortError' ? 'timed out' : err.message;
+        }
     }
 
     markdownInput.value = text;
@@ -492,15 +522,25 @@ async function clearAndPasteFromClipboard() {
     sourceUrl = null;
     updateTitle(null);
     renderMarkdown();
-    if (text.trim()) {
-        markDirty();
-    } else {
-        isDirty = false;
-        saveStatus.textContent = '';
-        saveStatus.className = 'status-indicator';
-    }
+    // Set the indicator outright rather than via markDirty(), which is a no-op
+    // when the document is already dirty and would leave a stale message up.
+    isDirty = !!text.trim();
+    saveStatus.textContent = isDirty ? '● unsaved' : '';
+    saveStatus.className = isDirty ? 'status-indicator unsaved' : 'status-indicator';
     saveDraft();
     updateRefreshVisibility();
+    if (linkFailure) {
+        // Overwrites the "unsaved" marker for a moment, which is fine: the
+        // reason the link did not load is the more useful thing to show.
+        saveStatus.textContent = '⚠ link not loaded (' + linkFailure + ') — pasted as text';
+        saveStatus.className = 'status-indicator unsaved';
+        setTimeout(() => {
+            if (isDirty) {
+                saveStatus.textContent = '● unsaved';
+                saveStatus.className = 'status-indicator unsaved';
+            }
+        }, 4000);
+    }
     markdownInput.focus();
 }
 
@@ -836,6 +876,7 @@ async function loadFromUrl() {
             renderMarkdown();
             saveDraft();
         }
+        await markFileInSync();
     } catch (error) {
         alert('Failed to open file: ' + error.message);
     }
@@ -862,6 +903,72 @@ async function loadFromUrlParam() {
 // rather than setting one lets the mobile stylesheet keep it hidden on phones.
 function updateRefreshVisibility() {
     refreshButton.style.display = (HAS_BACKEND || sourceUrl) ? '' : 'none';
+}
+
+// --- Auto-sync (Local mode) -------------------------------------------------
+// When an agent or another editor rewrites the open file, pick the change up
+// without being asked. Unsaved edits are never overwritten: if the document is
+// dirty the change is only announced, and Refresh remains the way to take it.
+const WATCH_INTERVAL_MS = 1500;
+let watchTimer = null;
+let watchedMtime = null;
+let announcedExternalChange = false;
+
+async function readFileMtime(path) {
+    const response = await fetch('/file-stat?path=' + encodeURIComponent(path), { cache: 'no-store' });
+    if (!response.ok) throw new Error('stat failed');
+    return (await response.json()).mtimeMs;
+}
+
+// Call after any load or save so our own write is not seen as someone else's.
+async function markFileInSync() {
+    if (!HAS_BACKEND || !currentFile) return;
+    try { watchedMtime = await readFileMtime(currentFile); } catch { watchedMtime = null; }
+    announcedExternalChange = false;
+}
+
+async function pollFileForChanges() {
+    if (!HAS_BACKEND || !currentFile || document.hidden) return;
+    let mtime;
+    try { mtime = await readFileMtime(currentFile); } catch { return; }  // deleted/renamed: stay quiet
+    if (watchedMtime === null) { watchedMtime = mtime; return; }
+    if (mtime === watchedMtime) return;
+
+    if (isDirty) {
+        // Two versions have diverged; the one being typed wins until told otherwise.
+        if (!announcedExternalChange) {
+            announcedExternalChange = true;
+            saveStatus.textContent = '⚠ changed on disk — ↺ Refresh to load it';
+            saveStatus.className = 'status-indicator unsaved';
+        }
+        return;
+    }
+
+    try {
+        const response = await fetch('/open-file?path=' + encodeURIComponent(currentFile));
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error);
+        const caret = markdownInput.selectionStart;
+        markdownInput.value = result.content;
+        renderMarkdown();
+        markdownInput.setSelectionRange(Math.min(caret, result.content.length),
+                                        Math.min(caret, result.content.length));
+        saveDraft();
+        watchedMtime = mtime;
+        saveStatus.textContent = '↻ synced';
+        saveStatus.className = 'status-indicator saved';
+        setTimeout(() => {
+            if (!isDirty && saveStatus.textContent === '↻ synced') {
+                saveStatus.textContent = '';
+                saveStatus.className = 'status-indicator';
+            }
+        }, 1800);
+    } catch { /* transient read error — try again next tick */ }
+}
+
+function startFileWatcher() {
+    if (watchTimer || !HAS_BACKEND) return;
+    watchTimer = setInterval(pollFileForChanges, WATCH_INTERVAL_MS);
 }
 
 // --- Backend detection + mode setup ---
@@ -895,6 +1002,7 @@ function updateRefreshVisibility() {
     }
 
     updateRefreshVisibility();
+    startFileWatcher();   // Local mode: pick up edits made by agents or other editors
 
     // If nothing loaded a document, recover the last draft.
     restoreDraftIfEmpty();
@@ -1024,6 +1132,7 @@ refreshButton.addEventListener('click', async () => {
         isDirty = false;
         saveStatus.textContent = '';
         saveStatus.className = 'status-indicator';
+        await markFileInSync();   // taking the disk version clears the divergence
     } catch (error) {
         alert('Failed to refresh file: ' + error.message);
     }

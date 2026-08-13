@@ -60,6 +60,27 @@ app.get('/open-file', (req, res) => {
   }
 });
 
+// Cheap "has the file changed?" probe for the editor's auto-sync. The browser
+// polls this instead of the server pushing events: fs.watch reports renames and
+// misses atomic saves (the write-temp-then-rename dance most editors and agents
+// perform), whereas a stat call is boring and correct on every platform.
+app.get('/file-stat', (req, res) => {
+  const filePath = req.query.path;
+  if (!filePath) {
+    return res.status(400).json({ error: 'path parameter is required' });
+  }
+  const resolved = resolveSafe(filePath);
+  if (!resolved) {
+    return res.status(403).json({ error: 'Access denied: path is outside MD_BASE_DIR' });
+  }
+  try {
+    const stat = fs.statSync(resolved);
+    res.json({ mtimeMs: stat.mtimeMs, size: stat.size });
+  } catch (error) {
+    res.status(404).json({ error: 'Failed to stat file: ' + error.message });
+  }
+});
+
 app.post('/save-markdown', (req, res) => {
   const { filePath, content } = req.body;
 

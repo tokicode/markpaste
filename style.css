@@ -773,6 +773,67 @@ body > * { position: relative; z-index: 1; }
     margin: 1.1em 0;
 }
 
+/* --- Syntax highlighting (highlight.js tokens) ---
+   A small palette built from the theme variables rather than a stock
+   highlight.js stylesheet, so coloured code still looks like it belongs in
+   Aurum / Metro / Folio, in both light and dark. */
+#rendered-output .hljs-comment,
+#rendered-output .hljs-quote {
+    color: var(--text-muted-s);
+    font-style: italic;
+}
+
+#rendered-output .hljs-keyword,
+#rendered-output .hljs-selector-tag,
+#rendered-output .hljs-meta,
+#rendered-output .hljs-type {
+    color: var(--accent);
+    font-weight: 600;
+}
+
+#rendered-output .hljs-string,
+#rendered-output .hljs-regexp,
+#rendered-output .hljs-symbol {
+    color: var(--success);
+}
+
+#rendered-output .hljs-number,
+#rendered-output .hljs-literal,
+#rendered-output .hljs-attr,
+#rendered-output .hljs-property,
+#rendered-output .hljs-selector-attr {
+    color: var(--blue);
+}
+
+#rendered-output .hljs-title,
+#rendered-output .hljs-name,
+#rendered-output .hljs-built_in,
+#rendered-output .hljs-class .hljs-title,
+#rendered-output .hljs-function .hljs-title {
+    color: var(--accent-bright);
+}
+
+#rendered-output .hljs-variable,
+#rendered-output .hljs-params,
+#rendered-output .hljs-tag {
+    color: var(--text-primary);
+}
+
+#rendered-output .hljs-deletion { color: var(--danger); }
+#rendered-output .hljs-addition { color: var(--success); }
+#rendered-output .hljs-emphasis { font-style: italic; }
+#rendered-output .hljs-strong { font-weight: 700; }
+
+/* --- ==highlighted text== --- */
+#rendered-output mark {
+    background: var(--accent-dim);
+    color: var(--text-primary);
+    padding: 0.08em 0.28em;
+    border-radius: 3px;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+}
+
 #rendered-output pre code {
     background: transparent;
     border: none;

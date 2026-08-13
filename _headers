@@ -1,0 +1,9 @@
+# Cloudflare Pages serves index.html with max-age=0 but static assets with
+# max-age=14400, so for four hours after a deploy a returning visitor runs the
+# new HTML against a cached script.js. Revalidate these two instead: they are
+# tiny, they carry ETags, so an unchanged file costs one 304.
+/script.js
+  Cache-Control: public, max-age=0, must-revalidate
+
+/style.css
+  Cache-Control: public, max-age=0, must-revalidate
