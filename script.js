@@ -623,6 +623,42 @@ function snapshotTarget() {
     return { width: 375, scale: 3 };
 }
 
+// html2canvas 1.4.1 (unmaintained since 2022) throws on any element that
+// generates no box: getComputedStyle returns an empty declaration and its CSS
+// parser dies on the first empty value ("unexpected EOF"), killing the whole
+// render. Browsers keep changing which elements report that way, so guard the
+// whole capture rather than chase one property at a time. Returns a restore
+// function; normal elements pass straight through, so nothing else is affected.
+function guardComputedStyle() {
+    const native = window.getComputedStyle;
+    // A hidden span gives a complete, valid declaration to fall back on — and
+    // its display is 'none', so html2canvas skips the element after parsing it.
+    const probe = document.createElement('span');
+    probe.style.display = 'none';
+    document.body.appendChild(probe);
+    const fallback = native.call(window, probe);
+
+    window.getComputedStyle = function (element, pseudo) {
+        const style = native.call(window, element, pseudo);
+        if (style.display !== '') return style;
+        return new Proxy(style, {
+            get(target, prop) {
+                if (prop === 'getPropertyValue') {
+                    return (name) => target.getPropertyValue(name) || fallback.getPropertyValue(name);
+                }
+                const value = target[prop];
+                if (typeof value === 'function') return value.bind(target);
+                return value === '' ? fallback[prop] : value;
+            }
+        });
+    };
+
+    return () => {
+        window.getComputedStyle = native;
+        probe.remove();
+    };
+}
+
 async function captureLongImage() {
     if (!window.html2canvas) {
         alert('Image library failed to load (html2canvas CDN). Check your connection and reload.');
@@ -642,6 +678,7 @@ async function captureLongImage() {
     const watermark = document.createElement('div');
     watermark.className = 'snapshot-watermark';
     watermark.textContent = '◈ markpaste.com';
+    let restoreComputedStyle = null;
 
     try {
         document.body.classList.add('light-mode', 'snapshot-mode');
@@ -666,11 +703,29 @@ async function captureLongImage() {
             scale = Math.max(1, Math.floor(32000 / contentHeight));
         }
 
+        restoreComputedStyle = guardComputedStyle();
         const canvas = await html2canvas(renderedOutput, {
             scale,
             useCORS: true,
             backgroundColor: null,
-            logging: false
+            logging: false,
+            // Task-list checkboxes are <input>, a void element that cannot hold
+            // the child node html2canvas injects to draw ::after — see the
+            // span.task-list-item-checkbox rules in style.css. Swapping in a
+            // span both avoids the crash and draws the tick properly, since
+            // html2canvas renders native form controls poorly anyway.
+            onclone: (doc) => {
+                doc.querySelectorAll('#rendered-output li.task-list-item input[type="checkbox"]')
+                    .forEach((box) => {
+                        const span = doc.createElement('span');
+                        span.className = 'task-list-item-checkbox';
+                        span.dataset.checked = box.checked ? 'true' : 'false';
+                        // Real child, not ::after — pseudo-elements are resolved
+                        // during the clone, which already happened by now.
+                        if (box.checked) span.appendChild(doc.createElement('i'));
+                        box.replaceWith(span);
+                    });
+            }
         });
 
         const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
@@ -697,6 +752,7 @@ async function captureLongImage() {
     } catch (error) {
         alert('Failed to generate image: ' + error.message);
     } finally {
+        if (restoreComputedStyle) restoreComputedStyle();
         watermark.remove();
         renderedOutput.style.width = '';
         document.body.classList.remove('snapshot-mode');

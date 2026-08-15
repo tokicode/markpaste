@@ -745,6 +745,44 @@ body > * { position: relative; z-index: 1; }
     transform: rotate(45deg);
 }
 
+/* Snap swaps every task-list checkbox for this span in the cloned document —
+   see the onclone hook in captureLongImage(). html2canvas draws a pseudo-
+   element by inserting a real child node, and <input> is a void element that
+   cannot take one: the inserted node never gets a box, getComputedStyle
+   returns an empty declaration, and html2canvas's CSS parser throws. A span
+   holds the ::after fine, so the tick actually renders in the image.
+   Geometry below must stay in sync with the input rules above. */
+#rendered-output li.task-list-item span.task-list-item-checkbox {
+    display: inline-block;
+    width: 1em;
+    height: 1em;
+    margin: 0 0.5em 0 0;
+    border: 1.5px solid var(--border-bright);
+    border-radius: 3px;
+    background: transparent;
+    vertical-align: -0.12em;
+    position: relative;
+}
+
+#rendered-output li.task-list-item span.task-list-item-checkbox[data-checked="true"] {
+    background: var(--accent);
+    border-color: var(--accent);
+}
+
+/* The tick is a real child node, not ::after: html2canvas resolves pseudo-
+   elements while it clones, which is before onclone runs, so anything the hook
+   creates would never get one. Same geometry as the :checked::after rule. */
+#rendered-output li.task-list-item span.task-list-item-checkbox > i {
+    position: absolute;
+    left: 0.3em;
+    top: 0.08em;
+    width: 0.24em;
+    height: 0.48em;
+    border: solid #fff;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+
 #rendered-output blockquote {
     margin: 1.2em 0;
     padding: 0.8em 1.25em;
