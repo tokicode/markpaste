@@ -2,7 +2,7 @@
 
 **Markdown 进，富文本出** —— 用 Markdown 写，点一下 **Copy**，直接粘进 Word、Outlook、Gmail 或 Notion，格式不走样。
 
-[English](README.md) · [简体中文](README.zh-CN.md) · [markpaste.com](https://markpaste.com)
+[English](README.md) · [简体中文](README.zh-CN.md) · [日本語](README.ja.md) · [markpaste.com](https://markpaste.com)
 
 [![License](https://img.shields.io/badge/License-MIT-blue)](LICENSE)
 [![Live](https://img.shields.io/badge/markpaste.com-live-D4A843)](https://markpaste.com)
