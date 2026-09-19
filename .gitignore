@@ -2,5 +2,8 @@ node_modules/
 .claude/
 nul
 
+# macOS Finder metadata
+.DS_Store
+
 # Generated local-edition single-file build (run: npm run build:local)
 markpaste-local.html
