@@ -589,6 +589,13 @@ body > * { position: relative; z-index: 1; }
     line-height: 1.85;
     color: var(--text-primary);
     transition: background var(--transition), border-color var(--transition);
+    /* Japanese and Chinese have no italic forms. Asked for one, the browser
+       fakes it by slanting the glyphs, which reads as a typesetting mistake —
+       and the italic h1, blockquote and <em> below would all hit it. Switching
+       synthesis off sets CJK upright while real Latin italics still apply
+       (Lora, Cormorant and DM Sans each ship one), which is how mixed
+       CJK/Latin text is normally set. Code comments opt back in — see below. */
+    font-synthesis-style: none;
 }
 
 /* --- Custom scrollbars --- */
@@ -868,6 +875,10 @@ body > * { position: relative; z-index: 1; }
 #rendered-output .hljs-quote {
     color: var(--text-muted-s);
     font-style: italic;
+    /* JetBrains Mono ships no italic face, so this slant is synthesised. The
+       rule above would cancel it and leave English comments upright, which is
+       the bigger regression — a slanted Japanese comment is the lesser one. */
+    font-synthesis-style: auto;
 }
 
 #rendered-output .hljs-keyword,
