@@ -1,3 +1,10 @@
 Windows Registry Editor Version 5.00
 
+; Removes the "Open with MarkPaste" right-click entry.
+; The second key is the name this used before the project was renamed — left
+; here so an older install is cleaned up too. Deleting a key that was never
+; created is harmless.
+
+[-HKEY_CURRENT_USER\Software\Classes\SystemFileAssociations\.md\shell\OpenWithMarkPaste]
+
 [-HKEY_CURRENT_USER\Software\Classes\SystemFileAssociations\.md\shell\OpenWithMarkdownRenderer]

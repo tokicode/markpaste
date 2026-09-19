@@ -1,7 +1,16 @@
 Windows Registry Editor Version 5.00
 
-[HKEY_CURRENT_USER\Software\Classes\SystemFileAssociations\.md\shell\OpenWithMarkdownRenderer]
-@="Open with Markdown Renderer"
+; Adds "Open with MarkPaste" to the right-click menu for .md files.
+;
+; EDIT THE PATH BELOW before importing — it must point at open-md.ps1 in your
+; own copy of this repository. A .reg file stores the command as a plain string,
+; so %USERPROFILE% and friends are NOT expanded here; write the full path out.
+;
+; Then: double-click this file, and start the server (npm start, or
+; start-hidden.vbs to run it without a console window).
 
-[HKEY_CURRENT_USER\Software\Classes\SystemFileAssociations\.md\shell\OpenWithMarkdownRenderer\command]
-@="powershell -ExecutionPolicy Bypass -WindowStyle Hidden -File \"C:\\Users\\wshi\\markdown-renderer\\open-md.ps1\" \"%1\""
+[HKEY_CURRENT_USER\Software\Classes\SystemFileAssociations\.md\shell\OpenWithMarkPaste]
+@="Open with MarkPaste"
+
+[HKEY_CURRENT_USER\Software\Classes\SystemFileAssociations\.md\shell\OpenWithMarkPaste\command]
+@="powershell -ExecutionPolicy Bypass -WindowStyle Hidden -File \"C:\\PATH\\TO\\MarkPaste\\open-md.ps1\" \"%1\""

@@ -87,7 +87,7 @@ npm run build:local
 
 ## おまけ：Windows の右クリックメニュー
 
-`add-context-menu.reg` / `remove-context-menu.reg`、`open-md.ps1`、`start-hidden.vbs` を使うと、Windows の右クリックメニューに「MarkPaste で `.md` を開く」を追加できます。Windows 専用です。
+`add-context-menu.reg` / `remove-context-menu.reg`、`open-md.ps1`、`start-hidden.vbs` を使うと、`.md` の右クリックメニューに「Open with MarkPaste」を追加できます。**取り込む前に `.reg` の中のパスを書き換えてください** — `.reg` はコマンドをただの文字列として持つため、リポジトリの場所を自力では見つけられません。Windows 専用です。
 
 ## ライセンス
 

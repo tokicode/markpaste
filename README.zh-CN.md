@@ -89,7 +89,7 @@ npm run build:local
 
 ## 可选：Windows 右键集成
 
-`add-context-menu.reg` / `remove-context-menu.reg`、`open-md.ps1` 和 `start-hidden.vbs` 用于在 Windows 右键菜单里加一项「用 MarkPaste 打开 `.md`」。可选，且仅限 Windows。
+`add-context-menu.reg` / `remove-context-menu.reg`、`open-md.ps1` 和 `start-hidden.vbs` 用于给 `.md` 文件在 Windows 右键菜单里加一项「Open with MarkPaste」。**导入 `.reg` 之前先改掉里面的路径** —— `.reg` 把命令存成纯字符串，没法自己找到仓库位置。可选，且仅限 Windows。
 
 ## 许可证
 

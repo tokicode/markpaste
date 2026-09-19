@@ -89,7 +89,7 @@ Snap is left out of this edition: html2canvas alone is 194 KB, and a phone-sized
 
 ## Optional: Windows right-click integration
 
-`add-context-menu.reg` / `remove-context-menu.reg`, `open-md.ps1` and `start-hidden.vbs` add an "open `.md` in MarkPaste" entry to the Windows right-click menu. Optional, and Windows-only.
+`add-context-menu.reg` / `remove-context-menu.reg`, `open-md.ps1` and `start-hidden.vbs` add an "Open with MarkPaste" entry to the Windows right-click menu for `.md` files. **Edit the path inside the `.reg` before importing it** — a `.reg` file stores the command as a plain string, so it cannot find the repository on its own. Optional, and Windows-only.
 
 ## License
 
