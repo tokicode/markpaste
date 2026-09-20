@@ -4,11 +4,20 @@
 //   npm install        (once, to fetch the markdown-it libraries)
 //   npm run build:local
 //
-// The local edition is a pure Markdown + code editor. Everything it needs is
-// inlined, so it works with no network at all: no CDN, no fonts to fetch, no
-// failed requests at a customer site. Double-click to open in any browser —
-// edit, live preview, syntax highlighting, Copy to clipboard, export HTML/Word,
-// and PDF via the browser's print dialog.
+// The local edition is a pure Markdown + code editor. The point is that there
+// is nothing to INSTALL — plenty of customer sites won't let us install
+// software, but almost all of them have internet. Double-click to open in any
+// browser — edit, live preview, syntax highlighting, Copy to clipboard, export
+// HTML/Word, and PDF via the browser's print dialog.
+//
+// All the code it needs is inlined: no CDN scripts, no build step, no server.
+//
+// Fonts are the one deliberate exception. The Google Fonts <link> tags are
+// left alone and still fetched from the network. Inlining four families as
+// base64 woff2 would push the file from ~420 KB past 1 MB, and small is the
+// whole point. At the rare site with no internet the requests just fail and
+// the browser falls back to system fonts — the editor still works, it only
+// looks plainer. Do not "fix" this by embedding fonts.
 //
 // Deliberately dropped, to keep the file small and the tool focused:
 //   * Snap (the mobile long-image button) — html2canvas alone is 194 KB, and a
