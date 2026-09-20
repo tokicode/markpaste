@@ -18,7 +18,15 @@ The frontend decides which mode to use by probing `GET /api/health` at startup (
 ```bash
 npm start          # = node server.js
 ```
-Server starts at http://localhost:3000 (bound to 127.0.0.1, local-only).
+Server starts at http://localhost:3000, bound to loopback only (`127.0.0.1` and `::1`).
+
+On the maintainer's machine the local server is owned by **PM2** (app name `markpaste`), not by a bare `npm start`:
+
+```bash
+pm2 restart markpaste
+```
+
+**PM2 does not hot-reload.** After editing `server.js` you must `pm2 restart markpaste`, or you will be debugging the old code.
 
 ### Install dependencies
 ```bash
@@ -30,11 +38,14 @@ No test framework or linter is currently configured.
 ## Architecture
 
 ### Backend (server.js)
-- Express 5 static file server serving the frontend from the project root; binds to `127.0.0.1` only
+- Express 5 static file server serving the frontend from the project root; listens on both loopback families (`127.0.0.1` and `::1`) so `localhost` reaches it regardless of how Windows resolves it — never reachable from the network
 - `GET /api/health` — returns `{ ok: true }`; the frontend probes this to detect Local vs Web mode
 - `POST /save-markdown` — accepts `{ filePath, content }`, writes to disk via `fs.writeFileSync` (only `filePath` is required; empty `content` is a valid cleared document)
 - `GET /open-file?path=` — reads a local file and returns `{ filePath, content }`; used by `?file=` URL param and Refresh
+- `POST /export-pdf` — accepts `{ html, title }`, spawns the system Edge/Chrome headless (`--headless=new --print-to-pdf` with a throwaway `--user-data-dir`) and streams back a true text-based, multi-page PDF. Browser is auto-detected; override with the `MARKPASTE_BROWSER` env var
 - Optional sandbox: when `MD_BASE_DIR` is set, `/open-file` and `/save-markdown` reject paths outside it (403); unset = unrestricted (default)
+
+**Security note:** `/open-file` and `/save-markdown` do unrestricted `fs` read/write with user-supplied paths. That is acceptable only because the server is loopback-only. `server.js` must never be deployed to a public host — the web edition is static-only.
 
 ### Frontend (index.html, script.js, style.css)
 - Two-column layout: `#editor-panel` (left) and `#preview-panel` (right) are `.panel-wrapper` flex children of `.editor-container`
@@ -45,8 +56,9 @@ No test framework or linter is currently configured.
 - Google Fonts loaded via `<link>` in `<head>` (not CSS @import) for performance
 - CDN dependencies (no bundler):
   - **markdown-it** (v12.3.2) — Markdown parsing and HTML rendering
-  - **html2canvas** (v1.4.1) — HTML-to-canvas conversion for PDF export
-  - **jsPDF** (v2.5.1) — PDF generation and download
+  - **markdown-it-footnote** (v3.0.3), **markdown-it-task-lists** (v2.1.1), **markdown-it-mark** (v3.0.1) — parser plugins
+  - **highlight.js** (v11.9.0) — code block syntax highlighting; the PowerShell language pack is loaded separately because it is not in the common bundle
+  - **html2canvas** (v1.4.1) — used ONLY by the "Snap" image export (`#save-image`), which rasterizes the preview into a mobile-width long image (375px, 3x on desktop) and copies it to the clipboard. It is **not** used for PDF export
 
 ### Data Flow
 1. User loads a `.md` file via HTML file input → FileReader reads content
@@ -55,4 +67,6 @@ No test framework or linter is currently configured.
 4. Save options:
    - **Save MD**: Local mode → POST to `/save-markdown` (server writes to disk); Web mode → browser download of a `.md`
    - **Copy**: writes both `text/html` (rich) and `text/plain` to the clipboard via the Clipboard API
-   - **Save HTML/Word/PDF**: Client-side only (Blob download / html2canvas + jsPDF) → browser download
+   - **Export HTML/Word**: client-side only — Blob download (Word is a `.doc` HTML envelope)
+   - **Export PDF**: Local mode → POST the rendered HTML to `/export-pdf`, server renders via headless Edge/Chrome → download. Web mode (and any server-side failure) → falls back to `window.print()` plus the `@media print` rules in `style.css`
+   - **Snap**: html2canvas rasterizes the preview → long image copied to the clipboard (client-side, both modes)
