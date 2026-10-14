@@ -1637,3 +1637,17 @@ body.snapshot-mode #rendered-output td {
     /* Find bar is keyboard-driven; nothing opens it on a phone */
     #find-bar { display: none; }
 }
+
+/* Visually hidden but available to screen readers and search engines.
+   Used for the SEO description paragraph; the app UI is unchanged. */
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
